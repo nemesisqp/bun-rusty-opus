@@ -1,0 +1,121 @@
+name: Release
+
+# Builds prebuilt napi binaries for every supported platform and publishes
+# the main package + all platform packages to npm.
+#
+# Triggered by pushing a semver tag (v0.1.0, v0.2.0, ...). Requires the
+# NPM_TOKEN repository secret (an npm automation token for the package).
+#
+# Deliberately NO source-build fallback anywhere: if a platform has no
+# prebuilt here, `npm install`/`bun install` must fail (see
+# scripts/check-prebuilt.js and the loader in lib/loader.js).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: build ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-13
+            target: x86_64-apple-darwin
+            build: npm run build -- --target x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            build: npm run build -- --target aarch64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            build: npm run build -- --target x86_64-pc-windows-msvc
+          - host: windows-latest
+            target: aarch64-pc-windows-msvc
+            build: npm run build -- --target aarch64-pc-windows-msvc
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            build: npm run build -- --target x86_64-unknown-linux-gnu
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            build: npm run build -- --target aarch64-unknown-linux-gnu
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            build: npm run build -- --target x86_64-unknown-linux-musl --zig
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-musl
+            build: npm run build -- --target aarch64-unknown-linux-musl --zig
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.settings.target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install cross toolchain (aarch64 GNU)
+        if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install zig (musl targets)
+        if: endsWith(matrix.settings.target, '-musl')
+        uses: taiki-e/install-action@cargo-zigbuild
+      - run: npm ci
+      # No RUSTFLAGS target-cpu here, ever: prebuilts must run on any CPU of
+      # the arch. rusty-opus dispatches SIMD at runtime (see README).
+      - run: ${{ matrix.settings.build }}
+        env:
+          RUSTFLAGS: ''
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: '*.node'
+          if-no-files-found: error
+
+  publish:
+    name: publish to npm
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bindings-*
+          path: artifacts
+          merge-multiple: true
+      - run: npx napi create-npm-dirs
+      - name: Place each .node in its platform package dir
+        run: |
+          for f in artifacts/*.node; do
+            triple=$(basename "$f" | sed 's/^bun-rusty-opus\.//; s/\.node$//')
+            cp "$f" "npm/$triple/"
+            echo "$triple <- $f"
+          done
+          ls npm/*/ | head -40
+      - run: npx napi prepublish
+      - name: Publish main package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish platform packages
+        run: |
+          for dir in npm/*/; do
+            (cd "$dir" && npm publish --access public)
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

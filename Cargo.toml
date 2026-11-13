@@ -1,0 +1,35 @@
+[package]
+name = "bun-rusty-opus"
+version = "0.1.0"
+edition = "2021"
+description = "Bun/Node bindings to rusty-opus — a pure-Rust Opus codec, ~1.5x faster than libopus"
+license = "MIT"
+authors = ["Phuong Nhu DQ"]
+repository = "https://github.com/nemesisqp/bun-rusty-opus"
+readme = "README.md"
+rust-version = "1.85"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", default-features = false, features = ["napi9"] }
+napi-derive = "3"
+# Exact pin: the API surface (f32-only encode/decode, public-field settings)
+# is verified against 1.0.2. See docs/research-rusty-opus.md.
+rusty-opus = "=1.0.2"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+# Portable prebuilts: rusty-opus already runtime-dispatches SIMD
+# (AVX2/FMA/SSE2 on x86, NEON on aarch64 — see src/isa.rs in the crate),
+# so one binary runs on any CPU of its arch. Do NOT add
+# `-C target-cpu=native` here or in CI: a binary built with `native` on
+# the CI runner can SIGILL on a user's older CPU. `target-cpu=native`
+# is only for a dev-local build (scripts/build-local.sh).
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true

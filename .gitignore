@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Rust / napi-rs
+/target
+*.node
+/npm
+.cargo/
+
+# Local dev
+bun.lockb
