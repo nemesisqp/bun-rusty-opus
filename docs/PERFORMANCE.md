@@ -12,13 +12,14 @@ re-run the bench on your own hardware.
 
 | codec (bitrate matched at 64 kbps) | encode | decode | total |
 | --- | --- | --- | --- |
-| bun-rusty-opus (v0.1.1) | ~68 ms | ~29 ms | ~97 ms |
-| @discordjs/opus 0.11.0 (libopus) | ~88 ms | ~22 ms | ~110 ms |
+| bun-rusty-opus (v0.2.0) | ~68 ms | ~28 ms | ~96 ms |
+| @discordjs/opus 0.11.0 (libopus) | ~89 ms | ~22 ms | ~111 ms |
 
-Across runs: **encode 1.27–1.39x faster, decode 0.66–0.77x (slower),
-overall 1.09–1.15x**. Both codecs run ~90–100x realtime on this VM
+Across runs: **encode 1.28–1.31x faster, decode 0.80x (slower),
+overall 1.14–1.15x**. Both codecs run ~90–100x realtime on this VM
 (~4900–5200 frames/s). v0.1.0 decoded at ~33 ms; v0.1.1's SIMD
-f32→i16 conversion (below) brought it to ~29 ms.
+f32→i16 conversion brought it to ~29 ms; v0.2.0's vendored-fork
+patches (below) to ~28 ms.
 
 ### What the "1.5x faster" claim really means
 
@@ -98,6 +99,38 @@ It is not attempted here.
 slower than libopus in rusty-opus (153 ms vs 51 ms for 10 s) — the
 crate's "SILK within 4%" claim does not hold there on this VM. The
 48 kHz encode win (1.3x) is unaffected. Not fixed in this release.
+
+## Vendored rusty-opus fork (v0.2.0)
+
+The remaining decode gap was inside the crate, so rusty-opus 1.0.2 is
+vendored into `vendor/rusty-opus/` (`[patch.crates-io]`, see
+`vendor/rusty-opus/PATCHES.md`) with bit-preserving patches only —
+every patch must produce bit-identical PCM to pristine 1.0.2, checked
+by `scripts/check-decode-parity.sh` (44/44: 11 configs × normal/PLC/
+FEC decode + encode bit-identity). Applied patches:
+
+- `exp_rotation1` AVX2/SSE2 kernels (PVQ spreading rotation had a
+  NEON kernel but no x86 twin; forward pass only, no FMA, unit-tested
+  bit-exact vs scalar).
+- `dec_bits` / `read_byte` / `unext` `#[inline(always)]`.
+- SIG_SAT clamp loop slices first (removes a per-sample bounds check,
+  lets LLVM vectorise the clamp).
+
+Together: decode 28.6 → 27.8 ms (0.78x → 0.80x vs libopus). Two leads
+were measured and dropped: the `cwrsi`/`compute_u` fallback never
+fires on real content (0 calls on the whole corpus), and an AVX
+`kf_bfly2` extraction did not vectorise (LLVM won't auto-vectorise
+its strided groups) and was reverted. The earlier estimate of 22–24 ms
+for a fork was too optimistic — see `docs/DECODE_ESTIMATE.md` for the
+honest post-mortem (PVQ scaffolding and the already-optimised
+IMDCT/postfilter don't have that headroom).
+
+A pre-existing upstream difference worth knowing: packet-loss
+concealment diverges from libopus (different fade — measured PLC RMS
+0.35 vs libopus 0.23 on the sine corpus). That is upstream behaviour,
+not a fork regression (the fork's PLC is bit-identical to pristine
+1.0.2); the JS test asserts PLC sanity (non-silent, bounded, decoding
+continues) rather than libopus parity.
 
 ## Pre-skip (end-to-end delay)
 

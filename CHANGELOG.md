@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.0 — 2026-11-13
+
+- Vendored rusty-opus 1.0.2 into `vendor/rusty-opus/` with
+  `[patch.crates-io]` and bit-preserving decode patches (see
+  `vendor/rusty-opus/PATCHES.md`): AVX2/SSE2 kernels for `exp_rotation1`
+  (the PVQ rotation had a NEON kernel but no x86 twin; no FMA, unit-
+  tested bit-exact vs scalar), `#[inline(always)]` on `dec_bits` /
+  `read_byte` / `unext`, and the SIG_SAT clamp loop slicing first.
+  Decode 28.6 → 27.8 ms in `bench.mjs` (0.78x → 0.80x vs
+  @discordjs/opus, overall 1.15x). Two leads were measured and dropped:
+  `compute_u` never fires on real content and an AVX `kf_bfly2`
+  extraction did not vectorise (reverted).
+- Validation harness: `scripts/check-decode-parity.sh` (pristine 1.0.2
+  vs fork, bit-for-bit, 44 checks: 11 configs × normal/PLC/FEC decode
+  + encode bit-identity — all pass) and `test/decode-parity.test.mjs`
+  (JS interop vs libopus: RMS ~2e-5, max 1 s16 LSB; PLC asserted as
+  sanity, not libopus parity, because upstream PLC legitimately
+  diverges from libopus's concealment fade).
+- `docs/DECODE_ESTIMATE.md` corrected: the 22–24 ms fork estimate was
+  too optimistic (PVQ scaffolding, already-optimised IMDCT/postfilter);
+  the fork's ~3% is real and the harness makes future patches cheap to
+  validate.
+
 ## 0.1.1 — 2026-11-13
 
 - Faster decode: the f32→i16 conversion on the decode path is now

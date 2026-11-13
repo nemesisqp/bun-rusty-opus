@@ -63,6 +63,46 @@ so this is purely a CELT/Hybrid wideband-decode story.
 is untouched by this work, so even full decode parity only moves the
 overall figure from 1.15x to ~1.27x.
 
+## Actual outcome (v0.2.0, 2026-11-13) — the estimate was too optimistic
+
+The fork was built (`vendor/rusty-opus/`, `[patch.crates-io]`,
+`vendor/rusty-opus/PATCHES.md`) and the estimate's leads were measured
+one by one before implementing. Result: **decode 28.6 → 27.8 ms**
+(0.78x → 0.80x vs libopus, overall still 1.15x) — not the 22–24 ms
+the estimate promised. What the estimate got wrong:
+
+- **PVQ's biggest chunk is scaffolding, not a hot loop.** A finer
+  profile showed `decode_pulses` is only ~24% of the PVQ bucket; the
+  rest is per-band scaffolding (`quant_partition` recursion,
+  `compute_theta`, Haar, dispatch) that does not vectorise and has no
+  single function to fix. The range decoder itself is already tight.
+- **The `cwrsi`/`compute_u` lead was dead.** `compute_u` fires **0
+  times** on the whole corpus (the table covers all real content), and
+  the linear scans average 2–12 steps — under 0.2 ms total. A binary
+  search would be no faster.
+- **The FFT lead did not vectorise.** Extracting the radix-2 `m > 1`
+  stage into an `avx` function (the crate's own pattern) left decode
+  unchanged — LLVM does not auto-vectorise its strided 8-element
+  groups. Only an explicit-intrinsic kernel could move it, and that was
+  judged not worth the shuffle-heavy code for ~1 ms.
+- **The postfilter was already optimised.** The comb filter has
+  AVX2+FMA kernels; it dominates the post stage and has little headroom.
+  Deemphasis is a serial IIR and genuinely unvectorisable.
+- **The profiler overstated the rotatable portions.** Its inflated
+  absolutes made `exp_rotation` look like 3.6 ms; the real gain from
+  its AVX2/SSE2 kernels is ~2–3%, and only the stride-2 pass benefits
+  (stride-1 is a serial recurrence).
+
+What worked: `exp_rotation1` AVX2/SSE2 (bit-identical, unit-tested),
+`dec_bits`/`read_byte`/`unext` inlining, and the SIG_SAT clamp slicing
+— together ~3%. The ceiling (~19–20 ms) is still a theoretical target,
+but reaching it needs the hard work this estimate flagged (a PVQ
+range-decoder rework, explicit-intrinsic FFT, postfilter restructure),
+not a 1–2 week pass. The fork's checks (pristine-vs-patched bit
+parity, 44/44; JS interop vs libopus within 1 s16 LSB; PLC sanity)
+all pass, and the fork is kept because the ~3% is real and the harness
+makes future patches cheap to validate.
+
 ## Caveats
 
 - The realistic case assumes the three stages respond as estimated;
