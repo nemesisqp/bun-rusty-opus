@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased (on main, not published)
+
+- Rebased the vendored rusty-opus fork from 1.0.2 to upstream **1.1.0**
+  (performance release, 2026-11-13, no API change, bit-identical
+  output). All four of our patches re-applied (FFT AVX kernels and
+  range-coder inlining cleanly; SIG_SAT slice at shifted lines;
+  `exp_rotation1` AVX2/SSE2 merged onto upstream's new bounds-check-free
+  scalar). One extra one-line lint fix for Rust 1.100's
+  `tuple_array_conversions` in upstream's `src/silk/resampler.rs`.
+  Parity harness updated to pristine 1.1.0, still 44/44.
+- Decode **0.82x → ~0.89x vs @discordjs/opus** (node bench, best of 3,
+  3 runs: 0.90x / 0.88x / 0.89x), encode ~1.40x → ~1.47x, overall
+  1.23x → ~1.30x. Absolute decode ~24.6–25.3 ms per 10 s of 48 kHz
+  stereo (was ~30.1 ms). This + the FFT kernels (commit 086c20d) are
+  the 0.2.2 release content when it is cut.
+- Author credit changed to "Muse" (package.json + Cargo.toml) at
+  Phuong's request; upstream credits untouched.
+
 ## 0.2.1 — 2026-11-13
 
 - Republish of 0.2.0 with no code changes: the `win32-x64-msvc`

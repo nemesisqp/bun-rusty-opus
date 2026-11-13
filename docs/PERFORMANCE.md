@@ -102,10 +102,10 @@ crate's "SILK within 4%" claim does not hold there on this VM. The
 
 ## Vendored rusty-opus fork (v0.2.0)
 
-The remaining decode gap was inside the crate, so rusty-opus 1.0.2 is
+The remaining decode gap was inside the crate, so rusty-opus 1.1.0 is
 vendored into `vendor/rusty-opus/` (`[patch.crates-io]`, see
 `vendor/rusty-opus/PATCHES.md`) with bit-preserving patches only —
-every patch must produce bit-identical PCM to pristine 1.0.2, checked
+every patch must produce bit-identical PCM to pristine 1.1.0, checked
 by `scripts/check-decode-parity.sh` (44/44: 11 configs × normal/PLC/
 FEC decode + encode bit-identity). Applied patches:
 
@@ -129,7 +129,7 @@ A pre-existing upstream difference worth knowing: packet-loss
 concealment diverges from libopus (different fade — measured PLC RMS
 0.35 vs libopus 0.23 on the sine corpus). That is upstream behaviour,
 not a fork regression (the fork's PLC is bit-identical to pristine
-1.0.2); the JS test asserts PLC sanity (non-silent, bounded, decoding
+1.1.0); the JS test asserts PLC sanity (non-silent, bounded, decoding
 continues) rather than libopus parity.
 
 ## Pre-skip (end-to-end delay)

@@ -6,7 +6,7 @@ flow.
 
 ## 1. Why rusty-opus, why napi-rs
 
-- rusty-opus 1.0.2 is a pure-Rust port of libopus 1.6: no C, no FFI, no
+- rusty-opus 1.1.0 is a pure-Rust port of libopus 1.6: no C, no FFI, no
   opus-sys, zero dependencies, BSD-3-Clause. Bit-exact on the RFC test
   vectors and interoperable with libopus both ways (verified in
   `test/interop.test.mjs`).

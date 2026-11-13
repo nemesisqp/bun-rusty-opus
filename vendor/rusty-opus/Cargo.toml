@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.85"
 name = "rusty-opus"
-version = "1.0.2"
+version = "1.1.0"
 authors = [
     "jinti<shenjindi@fourz.cn>",
     "Remade-With-Rust",
@@ -71,12 +71,12 @@ name = "rusty_opus"
 path = "src/lib.rs"
 
 [[example]]
-name = "parity-decode"
-path = "examples/parity-decode.rs"
-
-[[example]]
 name = "analysis_trace"
 path = "examples/analysis_trace.rs"
+
+[[example]]
+name = "parity-decode"
+path = "examples/parity-decode.rs"
 
 [[example]]
 name = "decode_bit"
@@ -101,6 +101,10 @@ path = "examples/fec_test.rs"
 [[example]]
 name = "gate_arm_cost"
 path = "examples/gate_arm_cost.rs"
+
+[[example]]
+name = "ir_bench"
+path = "examples/ir_bench.rs"
 
 [[example]]
 name = "ms_test"
@@ -394,7 +398,7 @@ features = ["std"]
 default-features = false
 
 [dev-dependencies.rusty_alloc-api]
-version = "=2.2.6"
+version = "=2.5.0"
 
 [lints.clippy]
 approx_constant = "allow"

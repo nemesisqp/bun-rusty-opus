@@ -1,15 +1,33 @@
 # rusty-opus fork (vendored)
 
-This is a vendored copy of **rusty-opus 1.0.2** (pure-Rust Opus codec,
+This is a vendored copy of **rusty-opus 1.1.0** (pure-Rust Opus codec,
 BSD-3-Clause, upstream: https://github.com/Remade-With-Rust/rusty-opus),
 patched by the bun-rusty-opus project for decode performance. The
 original `COPYING` (BSD-3-Clause) is retained unchanged.
 
+Rebased from 1.0.2 to 1.1.0 on 2026-11-13 (upstream's performance
+release, v1.1.0, 2026-11-13T07:18:55Z). All four patches below were
+re-applied: the FFT kernels (kiss_fft.rs) and the range-coder inlining
+(range_coder.rs) apply cleanly — upstream did not touch those files;
+the SIG_SAT slice (celt.rs) re-applies at shifted line numbers
+(upstream only removed the `w_pcm_frame` zero-fill next to it); the
+`exp_rotation1` AVX2/SSE2 kernels (pvq.rs) needed a manual merge
+because upstream rewrote the scalar to be bounds-check-free (with a
+`#[cold]` checked fallback) — our kernels and dispatcher are kept
+unchanged and the new upstream scalar is the fallback. Upstream's
+1.1.0 work (PVQ index-coding table-lookup skips, MDCT/high-pass
+zero-fill removal, inline `floor`/`round_ties_even`, SILK NSQ/decoder
+AVX2, slice-walking sample plumbing) is taken as-is. One extra
+one-line lint fix was needed (patch 5): upstream 1.1.0's
+`src/silk/resampler.rs` trips Rust 1.100's `tuple_array_conversions`
+lint under `-D warnings`.
+
 ## Why a vendored fork
 
-- Upstream decode at 48 kHz stereo is ~28.6 ms per 10 s of audio vs
-  ~22.2 ms for libopus (measured 2026-11-13, best of 3, this VM). The
-  binding already fixed its own layer (SIMD f32→i16 conversion,
+- Upstream decode at 48 kHz stereo is ~24.6 ms per 10 s of audio vs
+  ~22.2 ms for libopus (measured 2026-11-13, best of 3, this VM, after
+  the 1.1.0 rebase + our patches; before the rebase it was ~30.1 ms).
+  The binding already fixed its own layer (SIMD f32→i16 conversion,
   v0.1.1); the remaining gap is inside the crate's CELT/Hybrid decode.
 - The crate's own stage profiler is encode-only, which suggests decode
   has had less optimisation attention. The optimisations below are
@@ -26,8 +44,8 @@ Root `Cargo.toml` has:
 rusty-opus = { path = "vendor/rusty-opus" }
 ```
 
-The vendored crate keeps version `1.0.2` so the patch applies cleanly
-to the `=1.0.2` pin. Its own `Cargo.lock` is kept for standalone
+The vendored crate keeps version `1.1.0` so the patch applies cleanly
+to the `=1.1.0` pin. Its own `Cargo.lock` is kept for standalone
 `cargo test` runs inside this directory; the workspace lock is the
 authoritative one.
 
@@ -151,6 +169,12 @@ authoritative one.
   clone was redundant. Both are behaviour-identical; they unblock
   `cargo clippy --all-targets -- -D warnings`, which otherwise fails on
   these two pre-existing test-code lints under clippy 1.100.
+- `src/silk/resampler.rs` (`ar2_q14_exact`, upstream 1.1.0 code):
+  `let (mut s0, mut s1) = (s[0], s[1]);` → `let [mut s0, mut s1] =
+  [s[0], s[1]];` — same values, same order, array destructuring so
+  Rust 1.100's `tuple_array_conversions` lint stays clean under
+  `-D warnings`. Behaviour-identical; needed only because the 1.1.0
+  rebase brought in this upstream line.
 
 ## Investigated and NOT applied (measured first, then dropped)
 

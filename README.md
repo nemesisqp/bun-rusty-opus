@@ -173,8 +173,8 @@ people's:
   **jinti** (`shenjindi@fourz.cn`) and the **Remade-With-Rust** team
   ([github.com/Remade-With-Rust/rusty-opus](https://github.com/Remade-With-Rust/rusty-opus),
   BSD-3-Clause). The SILK/CELT/Hybrid implementation, the SIMD kernels,
-  the bit-exact RFC test vectors — all theirs. v0.2.0 vendors their
-  1.0.2 release with a few small decode patches (see
+  the bit-exact RFC test vectors — all theirs. The current release
+  vendors their 1.1.0 release with a few small decode patches (see
   `vendor/rusty-opus/PATCHES.md`); the patches are mine, the codec is
   theirs.
 - **The Opus codec** — rusty-opus is a port of libopus, whose authors

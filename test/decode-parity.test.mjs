@@ -84,7 +84,7 @@ for (const cfg of manifest.configs) {
   // concealment fade: measured PLC RMS 0.35 vs libopus 0.23 on the sine
   // corpus, and the frame after a loss differs more). That is a
   // pre-existing upstream difference — the fork's PLC is guarded
-  // bit-exactly against pristine 1.0.2 by scripts/check-decode-parity.sh
+  // bit-exactly against pristine 1.1.0 by scripts/check-decode-parity.sh
   // instead. Here we only assert PLC is alive and sane: it outputs
   // non-silent, bounded audio and decoding continues afterwards.
   test(`packet-loss concealment stays sane: ${cfg.name}`, () => {

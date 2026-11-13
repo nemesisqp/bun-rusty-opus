@@ -135,6 +135,40 @@ of decode and the kernels recovered ~2.4 of those 3.8 ms; the rest
 remaining gap to libopus (~25.3 ms decode) is now ~5 ms, mostly the
 serial PVQ/postfilter work identified in the original estimate.
 
+## Actual outcome, continued — upstream rusty-opus 1.1.0 (2026-11-13)
+
+Phuong spotted upstream's new **v1.1.0** release (2026-11-13T07:18:55Z,
+~6 h old) — a performance release, no API change, bit-identical
+output, claiming decode instruction counts down 8.9–15.8% (CELT stereo
+music −13.7%) and SILK encode time +14.5%, with the caveat that on
+CELT the instruction count falls further than the time does (their
+CELT stereo encode time only improved +2.2%, inside the noise floor;
+decode time was not re-measured).
+
+The fork was rebased from 1.0.2 to 1.1.0 the same day. All four of our
+patches re-applied: FFT kernels and range-coder inlining apply cleanly
+(upstream did not touch `kiss_fft.rs` or `range_coder.rs`); the SIG_SAT
+slice re-applies at shifted line numbers; the `exp_rotation1`
+AVX2/SSE2 kernels needed a manual merge because upstream rewrote the
+scalar to be bounds-check-free (with a `#[cold]` checked fallback) —
+our kernels and dispatcher are kept unchanged and the new upstream
+scalar is the fallback (our AVX2/SSE2 kernels are still bit-exact
+against it, verified by the unit test). One extra one-line lint fix:
+upstream 1.1.0's `src/silk/resampler.rs` trips Rust 1.100's
+`tuple_array_conversions` lint under `-D warnings` (array
+destructuring instead of tuple, same values). The parity harness was
+updated to compare against pristine 1.1.0 and passes 44/44.
+
+Result (node bench, best of 3, this VM, 3 runs): decode **0.82x →
+~0.89x vs libopus** (runs: 0.90x, 0.88x, 0.89x), encode **1.40x →
+~1.47x** (runs: 1.49x, 1.47x, 1.35x — noisier), overall **1.23x →
+~1.30x**. Absolute decode ~24.6–25.3 ms (was ~30.1 ms). The 1.1.0
+upgrade closed roughly half the remaining decode gap (18% behind →
+~11% behind), more than the cautious 2–5% expected — the PVQ
+index-coding and zero-fill removals land squarely on the scaffolding
+identified as the bottleneck. The remaining ~11% is still the serial
+PVQ/postfilter work; no further clean SIMD wins are known.
+
 ## Caveats
 
 - The realistic case assumes the three stages respond as estimated;
