@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.1 — 2026-11-13
+
+- Faster decode: the f32→i16 conversion on the decode path is now
+  runtime-dispatched SIMD (AVX2/SSE2 on x86_64, NEON on aarch64, scalar
+  tail + fallback) instead of a scalar loop that did not auto-vectorise.
+  Decode 33.1 → 28.7 ms in `bench.mjs` (0.66x → 0.77x vs
+  @discordjs/opus), `decodeInto` 31.7 → 27.7 ms. Rounding may differ by
+  1 LSB on exact-half values (nearest-even vs half-away-from-zero).
+- Investigation notes in `docs/PERFORMANCE.md`: the remaining decode
+  gap is inside rusty-opus's CELT/Hybrid decode (SILK decode is at
+  parity or faster); ruled out with measurements — per-frame allocation
+  (0), denormals/FTZ (1.00x), SIMD dispatch, native CPU flags, packet
+  content. Also noted: SILK encode at 16 kHz mono is ~3x slower than
+  libopus in the crate (not fixed here).
+
 ## 0.1.0 — 2026-11-13
 
 First release.

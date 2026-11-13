@@ -11,8 +11,12 @@
 //!   itself also stops allocating after warm-up (see rusty-opus docs).
 //! * **i16 <-> f32 conversion is done here, in Rust.** `rusty-opus` 1.0.2 is
 //!   f32-only (no `encode_i16`/`decode_i16`); a JS conversion loop would
-//!   cost more than the codec itself on small frames. The loops below are
-//!   plain and auto-vectorise.
+//!   cost more than the codec itself on small frames. The i16 -> f32 loop
+//!   auto-vectorises; the f32 -> i16 loop does not (the `.round()` +
+//!   saturate chain defeats auto-vectorisation on the portable SSE2
+//!   baseline — measured 4.55 ms vs 0.87 ms for a plain cast over 960k
+//!   samples), so it has explicit runtime-dispatched SIMD kernels below
+//!   (AVX2 / SSE2 on x86_64, NEON on aarch64, scalar tail + fallback).
 //! * **Sync only.** No threadsafe functions, no async work — the surface
 //!   Bun had N-API crashes with in the past is avoided entirely.
 //!
@@ -89,6 +93,137 @@ fn f32_to_i16(sample: f32) -> i16 {
     // parity with libopus is not expected anyway — Opus is lossy.
     let v = (sample.clamp(-1.0, 1.0) * 32767.0).round() as i32;
     v.clamp(-32768, 32767) as i16
+}
+
+/// Scalar f32 -> s16le conversion. Used for the tail of the SIMD kernels
+/// and as the fallback on arches without a kernel below.
+fn f32_to_pcm_scalar(input: &[f32], out: &mut [u8]) {
+    debug_assert_eq!(out.len(), input.len() * 2);
+    for (i, &v) in input.iter().enumerate() {
+        out[i * 2..i * 2 + 2].copy_from_slice(&f32_to_i16(v).to_le_bytes());
+    }
+}
+
+/// f32 -> s16le conversion with runtime-dispatched SIMD.
+///
+/// Why this exists: the scalar loop costs ~4.6 ms per 960k samples
+/// (500 frames of 48 kHz stereo) while a plain cast costs ~0.9 ms — the
+/// `.round()` + saturate chain does not auto-vectorise on the portable
+/// baseline. The kernels below close that gap (~1 ms) with no change to
+/// the shipped binary's CPU baseline: AVX2 is detected at runtime, SSE2
+/// is the x86_64 baseline, NEON is the aarch64 baseline.
+///
+/// Rounding differs by path, by at most 1 LSB on exact-half values:
+/// scalar uses round-half-away-from-zero (`f32::round`); the SIMD kernels
+/// use the hardware round-to-nearest-even (`cvtps_epi32` / `vcvtq_s32_f32`,
+/// MXCSR/FPCR rounding mode, nearest-even by default). NaN input is
+/// garbage-in: scalar yields 0, SIMD yields 32767. Valid decoder output
+/// never contains NaN; the round-trip tests assert RMS, not bit parity.
+fn f32_to_pcm_bytes(input: &[f32], out: &mut [u8]) {
+    debug_assert_eq!(out.len(), input.len() * 2);
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            // SAFETY: AVX2 confirmed above; the kernel only reads/writes
+            // inside the slices (chunks_exact bounds) via unaligned loads.
+            unsafe {
+                f32_to_pcm_avx2(input, out);
+            }
+            return;
+        }
+        // SAFETY: SSE2 is the x86_64 baseline, always present.
+        unsafe {
+            f32_to_pcm_sse2(input, out);
+        }
+        return;
+    }
+    #[cfg(target_arch = "aarch64")]
+    {
+        // SAFETY: NEON is the aarch64 baseline, always present.
+        unsafe {
+            f32_to_pcm_neon(input, out);
+        }
+        return;
+    }
+    #[allow(unreachable_code)]
+    f32_to_pcm_scalar(input, out);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn f32_to_pcm_avx2(input: &[f32], out: &mut [u8]) {
+    use std::arch::x86_64::*;
+    let n = input.len();
+    let chunks = n / 16;
+    let scale = _mm256_set1_ps(32767.0);
+    let lo = _mm256_set1_ps(-1.0);
+    let hi = _mm256_set1_ps(1.0);
+    for c in 0..chunks {
+        let base = c * 16;
+        let v0 = _mm256_loadu_ps(input.as_ptr().add(base));
+        let v1 = _mm256_loadu_ps(input.as_ptr().add(base + 8));
+        let i0 = _mm256_cvtps_epi32(_mm256_mul_ps(
+            _mm256_max_ps(_mm256_min_ps(v0, hi), lo),
+            scale,
+        ));
+        let i1 = _mm256_cvtps_epi32(_mm256_mul_ps(
+            _mm256_max_ps(_mm256_min_ps(v1, hi), lo),
+            scale,
+        ));
+        // packs_epi32 is lane-ordered: low lane [i0_0..3, i1_0..3], high
+        // lane [i0_4..7, i1_4..7]. Permute the 64-bit lanes (0xD8) to get
+        // [i0_0..7, i1_0..7] in order, then store all 32 bytes.
+        let packed = _mm256_packs_epi32(i0, i1);
+        let shuffled = _mm256_permute4x64_epi64(packed, 0xD8);
+        _mm256_storeu_si256(out.as_mut_ptr().add(base * 2) as *mut __m256i, shuffled);
+    }
+    let done = chunks * 16;
+    f32_to_pcm_scalar(&input[done..], &mut out[done * 2..]);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse2")]
+unsafe fn f32_to_pcm_sse2(input: &[f32], out: &mut [u8]) {
+    use std::arch::x86_64::*;
+    let n = input.len();
+    let chunks = n / 8;
+    let scale = _mm_set1_ps(32767.0);
+    let lo = _mm_set1_ps(-1.0);
+    let hi = _mm_set1_ps(1.0);
+    for c in 0..chunks {
+        let base = c * 8;
+        let v0 = _mm_loadu_ps(input.as_ptr().add(base));
+        let v1 = _mm_loadu_ps(input.as_ptr().add(base + 4));
+        let i0 = _mm_cvtps_epi32(_mm_mul_ps(_mm_max_ps(_mm_min_ps(v0, hi), lo), scale));
+        let i1 = _mm_cvtps_epi32(_mm_mul_ps(_mm_max_ps(_mm_min_ps(v1, hi), lo), scale));
+        // 128-bit packs_epi32 preserves order: [i0_0..3, i1_0..3].
+        let packed = _mm_packs_epi32(i0, i1);
+        _mm_storeu_si128(out.as_mut_ptr().add(base * 2) as *mut __m128i, packed);
+    }
+    let done = chunks * 8;
+    f32_to_pcm_scalar(&input[done..], &mut out[done * 2..]);
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn f32_to_pcm_neon(input: &[f32], out: &mut [u8]) {
+    use std::arch::aarch64::*;
+    let n = input.len();
+    let chunks = n / 8;
+    let lo = vdupq_n_f32(-1.0);
+    let hi = vdupq_n_f32(1.0);
+    for c in 0..chunks {
+        let base = c * 8;
+        let v0 = vld1q_f32(input.as_ptr().add(base));
+        let v1 = vld1q_f32(input.as_ptr().add(base + 4));
+        let i0 = vcvtq_s32_f32(vmulq_n_f32(vmaxq_f32(vminq_f32(v0, hi), lo), 32767.0));
+        let i1 = vcvtq_s32_f32(vmulq_n_f32(vmaxq_f32(vminq_f32(v1, hi), lo), 32767.0));
+        // Saturating narrow to i16, low half first — in order.
+        let packed = vcombine_s16(vqmovn_s32(i0), vqmovn_s32(i1));
+        vst1q_s16(out.as_mut_ptr().add(base * 2) as *mut i16, packed);
+    }
+    let done = chunks * 8;
+    f32_to_pcm_scalar(&input[done..], &mut out[done * 2..]);
 }
 
 /// One native codec: an encoder and a decoder sharing the same rate/channels.
@@ -432,10 +567,8 @@ impl NativeOpus {
 
     fn f32_scratch_to_pcm(&self, samples_per_channel: usize) -> Buffer {
         let total = samples_per_channel * self.channels as usize;
-        let mut pcm = Vec::with_capacity(total * 2);
-        for &v in &self.f32_scratch[..total] {
-            pcm.extend_from_slice(&f32_to_i16(v).to_le_bytes());
-        }
+        let mut pcm = vec![0u8; total * 2];
+        f32_to_pcm_bytes(&self.f32_scratch[..total], &mut pcm);
         Buffer::from(pcm)
     }
 
@@ -476,9 +609,7 @@ impl NativeOpus {
             )));
         }
         let out: &mut [u8] = &mut output;
-        for (i, &v) in self.f32_scratch[..total].iter().enumerate() {
-            out[i * 2..i * 2 + 2].copy_from_slice(&f32_to_i16(v).to_le_bytes());
-        }
+        f32_to_pcm_bytes(&self.f32_scratch[..total], out);
         Ok((total * 2) as u32)
     }
 
@@ -511,4 +642,91 @@ impl NativeOpus {
 #[napi]
 pub fn create_opus(opts: OpusOptions) -> Result<NativeOpus> {
     NativeOpus::new(&opts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn random_input(n: usize) -> Vec<f32> {
+        let mut input = Vec::with_capacity(n);
+        let mut state: u32 = 0x1234_5678;
+        for _ in 0..n {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            input.push(state as f32 / u32::MAX as f32 * 2.8 - 1.4);
+        }
+        input
+    }
+
+    fn as_i16(bytes: &[u8]) -> Vec<i16> {
+        bytes
+            .chunks_exact(2)
+            .map(|c| i16::from_le_bytes([c[0], c[1]]))
+            .collect()
+    }
+
+    /// SIMD and scalar must agree within 1 LSB: they round exact-half
+    /// values differently (nearest-even vs half-away-from-zero).
+    fn assert_within_1_lsb(expected: &[u8], got: &[u8], input: &[f32]) {
+        assert_eq!(expected.len(), got.len());
+        let e = as_i16(expected);
+        let g = as_i16(got);
+        for (i, (&e, &g)) in e.iter().zip(g.iter()).enumerate() {
+            assert!(
+                (e as i32 - g as i32).abs() <= 1,
+                "sample {i}: scalar {e} vs simd {g} (input {})",
+                input[i]
+            );
+        }
+    }
+
+    #[test]
+    fn simd_conversion_matches_scalar_within_1_lsb() {
+        // Odd length exercises the scalar tail of every kernel.
+        let mut input = random_input(100_003);
+        // Exact halves: nearest-even and half-away-from-zero differ here.
+        for v in [
+            0.0f32,
+            1.0,
+            -1.0,
+            0.5,
+            -0.5,
+            1.5,
+            -1.5,
+            16383.5 / 32767.0,
+            2.5 / 32767.0,
+        ] {
+            input.push(v);
+        }
+        let mut expected = vec![0u8; input.len() * 2];
+        f32_to_pcm_scalar(&input, &mut expected);
+        let mut got = vec![0u8; input.len() * 2];
+        f32_to_pcm_bytes(&input, &mut got);
+        assert_within_1_lsb(&expected, &got, &input);
+    }
+
+    #[test]
+    fn simd_conversion_edge_values() {
+        let input = [0.0f32, 1.0, -1.0, 2.0, -2.0, 0.25, -0.25];
+        let mut out = vec![0u8; input.len() * 2];
+        f32_to_pcm_bytes(&input, &mut out);
+        assert_eq!(as_i16(&out), [0, 32767, -32767, 32767, -32767, 8192, -8192]);
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn sse2_kernel_matches_scalar() {
+        // Dispatch picks AVX2 on this machine, so test the SSE2 fallback
+        // kernel directly as well.
+        let input = random_input(1001);
+        let mut expected = vec![0u8; input.len() * 2];
+        f32_to_pcm_scalar(&input, &mut expected);
+        let mut got = vec![0u8; input.len() * 2];
+        unsafe {
+            f32_to_pcm_sse2(&input, &mut got);
+        }
+        assert_within_1_lsb(&expected, &got, &input);
+    }
 }
