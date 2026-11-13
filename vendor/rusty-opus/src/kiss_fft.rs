@@ -311,6 +311,19 @@ fn kf_bfly2(fout: &mut [KissCpx], m: usize, n: usize) {
             fout[idx] = c_add(&fout[idx], &t);
         }
     } else {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        // SAFETY: the kernel is only called after `crate::isa::avx()` returns
+        // true, which confirms the CPU supports the `avx` feature in its
+        // `#[target_feature]`. In the radix-2 `m > 1` stage, `opus_fft_impl`
+        // passes `n = fstride_i` with `8 * n == st.nfft`, so the kernel's
+        // `fout.len() >= 8 * n` precondition is the `assert!` at the top of
+        // `opus_fft_impl`.
+        unsafe {
+            if crate::isa::avx() {
+                kf_bfly2_mm_avx(fout, n);
+                return;
+            }
+        }
         let tw: f32 = std::f32::consts::FRAC_1_SQRT_2;
         for i in 0..n {
             let base = i * 8;
@@ -806,6 +819,65 @@ unsafe fn kf_bfly2_m1_avx(fout: &mut [KissCpx], n: usize) {
     }
 }
 
+/// AVX radix-2 `m > 1` butterfly (explicit intrinsics).
+///
+/// Each iteration handles 8 consecutive complex values as 4 butterfly
+/// pairs `(fout[base+k], fout[base+4+k])`, k = 0..3. The pairs have
+/// different constant twiddles, so a general complex multiply would
+/// NOT be bit-exact here: the scalar factors each twiddle as
+/// `(sum) * tw` (one add, one mul), while a general `c_mul` does two
+/// products then an add (different rounding). Instead the twiddled
+/// second operand `T` is built lane by lane from the duplicated
+/// real/imag parts, using the same factored sums the scalar uses:
+/// lane 0 `T = B`; lane 1 `T = ((Br+Bi)*tw, (Bi-Br)*tw)`; lane 2
+/// `T = (Bi, -Br)`; lane 3 `T = ((Bi-Br)*tw, -(Bi+Br)*tw)`. The
+/// duplicated real/imag results are interleaved with a 0xAA blend.
+/// All arithmetic is the scalar's, lane for lane, so output is
+/// bit-identical.
+///
+/// # Safety
+///
+/// The CPU must support `avx` (check `crate::isa::avx()`).
+/// `fout.len() >= 8 * n` (the radix-2 `m > 1` stage passes
+/// `n = fstride_i` with `8 * n == st.nfft`). No alignment is required
+/// (unaligned loads/stores throughout).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx")]
+unsafe fn kf_bfly2_mm_avx(fout: &mut [KissCpx], n: usize) {
+    use std::arch::x86_64::*;
+    let tw = _mm256_set1_ps(std::f32::consts::FRAC_1_SQRT_2);
+    let sign = _mm256_set1_ps(-0.0);
+    let ptr = fout.as_mut_ptr() as *mut f32;
+    for i in 0..n {
+        let base = i * 16; // 8 complex = 16 f32
+        let a = _mm256_loadu_ps(ptr.add(base));
+        let b = _mm256_loadu_ps(ptr.add(base + 8));
+        // Duplicated real/imag parts of B.
+        let br = _mm256_moveldup_ps(b);
+        let bi = _mm256_movehdup_ps(b);
+        // Factored sums (same as the scalar's (sum) * tw).
+        let s = _mm256_add_ps(br, bi);
+        let d = _mm256_sub_ps(bi, br);
+        let stw = _mm256_mul_ps(s, tw);
+        let dtw = _mm256_mul_ps(d, tw);
+        // T.r (duplicated) = [Br0, Br0, S1*tw, S1*tw, Bi2, Bi2, D3*tw, D3*tw].
+        let tr = _mm256_blend_ps(
+            _mm256_blend_ps(br, stw, 0x0C),
+            _mm256_blend_ps(bi, dtw, 0xC0),
+            0xF0,
+        );
+        // T.i (duplicated) = [Bi0, Bi0, D1*tw, D1*tw, -Br2, -Br2, -S3*tw, -S3*tw].
+        let ti = _mm256_blend_ps(
+            _mm256_blend_ps(bi, dtw, 0x0C),
+            _mm256_blend_ps(_mm256_xor_ps(br, sign), _mm256_xor_ps(stw, sign), 0xC0),
+            0xF0,
+        );
+        let t = _mm256_blend_ps(tr, ti, 0xAA);
+        _mm256_storeu_ps(ptr.add(base), _mm256_add_ps(a, t));
+        _mm256_storeu_ps(ptr.add(base + 8), _mm256_sub_ps(a, t));
+    }
+}
+
 /// AVX-compiled radix-4 `m == 1` butterfly.
 ///
 /// # Safety
@@ -831,12 +903,77 @@ unsafe fn kf_bfly4_m1_avx(fout: &mut [KissCpx], n: usize) {
     }
 }
 
-/// AVX-compiled radix-4 general-stage butterfly.
+/// AVX complex multiply of 4 interleaved complex pairs, bit-exact.
+///
+/// Mirrors the NEON `neon_cmul_2` helper (same per-lane arithmetic as
+/// scalar `c_mul`: separate multiplies, no FMA). The real part is formed
+/// as `ar*br + (-(ai*bi))`, which is bit-identical to `ar*br - ai*bi`
+/// (IEEE 754 negation is exact). The imaginary part keeps the scalar
+/// order `ar*bi + ai*br`.
 ///
 /// # Safety
 ///
-/// The CPU must support `avx` (check `crate::isa::avx()`). There are no
-/// memory preconditions: all accesses are bounds-checked.
+/// Pure register operation; no memory access. The CPU must support `avx`.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline(always)]
+unsafe fn avx_cmul_4(
+    a: std::arch::x86_64::__m256,
+    b: std::arch::x86_64::__m256,
+) -> std::arch::x86_64::__m256 {
+    use std::arch::x86_64::*;
+    // dup_r = [ar0,ar0,ar1,ar1,ar2,ar2,ar3,ar3]; t1 = [ar*br, ar*bi, ...].
+    let dup_r = _mm256_moveldup_ps(a);
+    let t1 = _mm256_mul_ps(dup_r, b);
+    // swap_neg = [-ai0, ai0, -ai1, ai1, -ai2, ai2, -ai3, ai3]:
+    // movehdup(neg_a) = [-ai,-ai,...], movehdup(a) = [ai,ai,...];
+    // blend 0xAA takes even lanes from the first, odd from the second.
+    let neg_a = _mm256_xor_ps(a, _mm256_set1_ps(-0.0));
+    let swap_neg = _mm256_blend_ps(_mm256_movehdup_ps(neg_a), _mm256_movehdup_ps(a), 0xAA);
+    // rev_b swaps r/i within each pair: [bi0, br0, bi1, br1, ...].
+    let rev_b = _mm256_shuffle_ps(b, b, 0xB1);
+    // t2 = [-ai*bi, ai*br, ...]; result = [ar*br-ai*bi, ar*bi+ai*br, ...].
+    let t2 = _mm256_mul_ps(swap_neg, rev_b);
+    _mm256_add_ps(t1, t2)
+}
+
+/// Load 4 twiddle complex values at `base + k*stride` (k = 0..3) into one
+/// interleaved `__m256` `[r0,i0,r1,i1,r2,i2,r3,i3]`.
+///
+/// # Safety
+///
+/// `twiddles.len() > base + 3*stride`. Called only with in-range
+/// indices (the stage walk guarantees `tw1 + (m-1)*fstride` is in range).
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline(always)]
+unsafe fn avx_load_twiddles_4(
+    twiddles: &[KissCpx],
+    base: usize,
+    stride: usize,
+) -> std::arch::x86_64::__m256 {
+    use std::arch::x86_64::*;
+    let w0 = &twiddles[base];
+    let w1 = &twiddles[base + stride];
+    let w2 = &twiddles[base + 2 * stride];
+    let w3 = &twiddles[base + 3 * stride];
+    _mm256_setr_ps(w0.r, w0.i, w1.r, w1.i, w2.r, w2.i, w3.r, w3.i)
+}
+
+/// AVX radix-4 general-stage butterfly (explicit intrinsics).
+///
+/// Processes 4 consecutive `j` values per vector iteration: the four
+/// `fout` partners (`idx`, `idx+m`, `idx+2m`, `idx+3m`) are each 4
+/// consecutive complex values, so they load with one `_mm256_loadu_ps`
+/// each. The twiddles advance by `fstride` per `j`, so they are gathered
+/// with `avx_load_twiddles_4` (scalar loads; the twiddle table is small
+/// and L1-resident). All arithmetic mirrors the scalar body lane for
+/// lane (same ops, same order, no FMA), so output is bit-identical.
+///
+/// # Safety
+///
+/// The CPU must support `avx` (check `crate::isa::avx()`).
+/// `fout.len() >= n * mm` and `twiddles.len() > (m - 1) * fstride * 3`
+/// (the stage walk in `opus_fft_impl` guarantees both). No alignment
+/// is required (unaligned loads/stores throughout).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx")]
 unsafe fn kf_bfly4_avx_inner(
@@ -847,18 +984,74 @@ unsafe fn kf_bfly4_avx_inner(
     mm: usize,
     fstride: usize,
 ) {
+    use std::arch::x86_64::*;
     let m2 = 2 * m;
     let m3 = 3 * m;
     let stride2 = fstride * 2;
     let stride3 = fstride * 3;
+    let ptr = fout.as_mut_ptr() as *mut f32;
 
     for i in 0..n {
         let base = i * mm;
         let mut tw1 = 0usize;
         let mut tw2 = 0usize;
         let mut tw3 = 0usize;
+        let mut j = 0usize;
 
-        for j in 0..m {
+        // Vector body: 4 consecutive j values.
+        while j + 4 <= m {
+            let idx = base + j;
+            // Four contiguous complex loads (8 f32 each).
+            let a = _mm256_loadu_ps(ptr.add(2 * idx));
+            let bm = _mm256_loadu_ps(ptr.add(2 * (idx + m)));
+            let bm2 = _mm256_loadu_ps(ptr.add(2 * (idx + m2)));
+            let bm3 = _mm256_loadu_ps(ptr.add(2 * (idx + m3)));
+            // Three strided twiddle vectors.
+            let t1 = avx_load_twiddles_4(twiddles, tw1, fstride);
+            let t2 = avx_load_twiddles_4(twiddles, tw2, stride2);
+            let t3 = avx_load_twiddles_4(twiddles, tw3, stride3);
+
+            // scratch0/1/2 = c_mul(partner, twiddle), bit-exact.
+            let s0 = avx_cmul_4(bm, t1);
+            let s1 = avx_cmul_4(bm2, t2);
+            let s2 = avx_cmul_4(bm3, t3);
+
+            // scratch5 = fout[idx] - scratch1; fout[idx] = fout[idx] + scratch1.
+            let s5 = _mm256_sub_ps(a, s1);
+            let f0 = _mm256_add_ps(a, s1);
+
+            // scratch3 = s0 + s2; scratch4 = s0 - s2.
+            let s3 = _mm256_add_ps(s0, s2);
+            let s4 = _mm256_sub_ps(s0, s2);
+
+            // fout[idx+m2] = f0 - s3; fout[idx] = f0 + s3.
+            _mm256_storeu_ps(ptr.add(2 * (idx + m2)), _mm256_sub_ps(f0, s3));
+            _mm256_storeu_ps(ptr.add(2 * idx), _mm256_add_ps(f0, s3));
+
+            // fout[idx+m]   = (s5.r + s4.i, s5.i - s4.r)
+            // fout[idx+m3]  = (s5.r - s4.i, s5.i + s4.r)
+            // s5r/s5i/s4r/s4i duplicate each real/imag part, so the real
+            // and imag results are duplicated too; blending a duplicated
+            // real vector with a duplicated imag vector with 0xAA picks
+            // the even lanes from the real side and the odd lanes from
+            // the imag side, interleaving them into [r0,i0,r1,i1,...].
+            let s5r = _mm256_moveldup_ps(s5);
+            let s5i = _mm256_movehdup_ps(s5);
+            let s4r = _mm256_moveldup_ps(s4);
+            let s4i = _mm256_movehdup_ps(s4);
+            let out_m = _mm256_blend_ps(_mm256_add_ps(s5r, s4i), _mm256_sub_ps(s5i, s4r), 0xAA);
+            let out_m3 = _mm256_blend_ps(_mm256_sub_ps(s5r, s4i), _mm256_add_ps(s5i, s4r), 0xAA);
+            _mm256_storeu_ps(ptr.add(2 * (idx + m)), out_m);
+            _mm256_storeu_ps(ptr.add(2 * (idx + m3)), out_m3);
+
+            tw1 += 4 * fstride;
+            tw2 += 4 * stride2;
+            tw3 += 4 * stride3;
+            j += 4;
+        }
+
+        // Scalar tail for m % 4 (and for m < 4): the original body.
+        for j in j..m {
             let idx = base + j;
 
             let scratch0 = c_mul(&fout[idx + m], &twiddles[tw1]);
@@ -884,12 +1077,20 @@ unsafe fn kf_bfly4_avx_inner(
     }
 }
 
-/// AVX-compiled radix-3 butterfly.
+/// AVX radix-3 general-stage butterfly (explicit intrinsics).
+///
+/// Processes 4 consecutive `j` values per vector iteration; the three
+/// `fout` partners are each 4 consecutive complex values (one
+/// `_mm256_loadu_ps` each) and the twiddles are gathered with
+/// `avx_load_twiddles_4`. All arithmetic mirrors the scalar body lane
+/// for lane (same ops, same order, no FMA), so output is bit-identical.
 ///
 /// # Safety
 ///
-/// The CPU must support `avx` (check `crate::isa::avx()`). There are no
-/// memory preconditions: all accesses are bounds-checked.
+/// The CPU must support `avx` (check `crate::isa::avx()`).
+/// `fout.len() >= n * mm` and `twiddles.len() > (m - 1) * fstride * 2`
+/// (the stage walk in `opus_fft_impl` guarantees both). No alignment
+/// is required (unaligned loads/stores throughout).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx")]
 unsafe fn kf_bfly3_avx_inner(
@@ -900,16 +1101,59 @@ unsafe fn kf_bfly3_avx_inner(
     n: usize,
     mm: usize,
 ) {
+    use std::arch::x86_64::*;
     let m2 = 2 * m;
-    let epi3_i: f32 = -0.866_025_4;
+    let epi3_i = _mm256_set1_ps(-0.866_025_4);
+    let half = _mm256_set1_ps(0.5);
     let stride2 = fstride * 2;
+    let ptr = fout.as_mut_ptr() as *mut f32;
 
     for i in 0..n {
         let base = i * mm;
         let mut tw1 = 0usize;
         let mut tw2 = 0usize;
+        let mut j = 0usize;
 
-        for j in 0..m {
+        // Vector body: 4 consecutive j values.
+        while j + 4 <= m {
+            let idx = base + j;
+            let a = _mm256_loadu_ps(ptr.add(2 * idx));
+            let bm = _mm256_loadu_ps(ptr.add(2 * (idx + m)));
+            let bm2 = _mm256_loadu_ps(ptr.add(2 * (idx + m2)));
+            let t1 = avx_load_twiddles_4(twiddles, tw1, fstride);
+            let t2 = avx_load_twiddles_4(twiddles, tw2, stride2);
+
+            let s1 = avx_cmul_4(bm, t1);
+            let s2 = avx_cmul_4(bm2, t2);
+            let s3 = _mm256_add_ps(s1, s2);
+            let s0 = _mm256_sub_ps(s1, s2);
+
+            let half_s3 = _mm256_mul_ps(s3, half);
+            let fout_m = _mm256_sub_ps(a, half_s3);
+            let s0_scaled = _mm256_mul_ps(s0, epi3_i);
+
+            _mm256_storeu_ps(ptr.add(2 * idx), _mm256_add_ps(a, s3));
+
+            // fout[idx+m]  = (fout_m.r - s0_scaled.i, fout_m.i + s0_scaled.r)
+            // fout[idx+m2] = (fout_m.r + s0_scaled.i, fout_m.i - s0_scaled.r)
+            let fm_r = _mm256_moveldup_ps(fout_m);
+            let fm_i = _mm256_movehdup_ps(fout_m);
+            let ss_r = _mm256_moveldup_ps(s0_scaled);
+            let ss_i = _mm256_movehdup_ps(s0_scaled);
+            let out_m = _mm256_blend_ps(_mm256_sub_ps(fm_r, ss_i), _mm256_add_ps(fm_i, ss_r), 0xAA);
+            let out_m2 =
+                _mm256_blend_ps(_mm256_add_ps(fm_r, ss_i), _mm256_sub_ps(fm_i, ss_r), 0xAA);
+            _mm256_storeu_ps(ptr.add(2 * (idx + m)), out_m);
+            _mm256_storeu_ps(ptr.add(2 * (idx + m2)), out_m2);
+
+            tw1 += 4 * fstride;
+            tw2 += 4 * stride2;
+            j += 4;
+        }
+
+        // Scalar tail for m % 4 (and for m < 4): the original body.
+        let epi3_i: f32 = -0.866_025_4;
+        for j in j..m {
             let idx = base + j;
 
             let scratch1 = c_mul(&fout[idx + m], &twiddles[tw1]);
@@ -934,12 +1178,23 @@ unsafe fn kf_bfly3_avx_inner(
     }
 }
 
-/// AVX-compiled radix-5 butterfly.
+/// AVX radix-5 general-stage butterfly (explicit intrinsics).
+///
+/// Processes 4 consecutive `u` values per vector iteration; the five
+/// `fout` partners are each 4 consecutive complex values (one
+/// `_mm256_loadu_ps` each) and the twiddles are gathered with
+/// `avx_load_twiddles_4`. All arithmetic mirrors the scalar body lane
+/// for lane (same ops, same order, no FMA), so output is bit-identical.
+/// The `ya`/`yb` constants mix real and imaginary parts, so those
+/// intermediates are built from duplicated real/imag vectors and
+/// interleaved with a 0xAA blend, as in the radix-4 kernel.
 ///
 /// # Safety
 ///
-/// The CPU must support `avx` (check `crate::isa::avx()`). There are no
-/// memory preconditions: all accesses are bounds-checked.
+/// The CPU must support `avx` (check `crate::isa::avx()`).
+/// `fout.len() >= n * mm` and `twiddles.len() > (m - 1) * fstride * 4`
+/// (the stage walk in `opus_fft_impl` guarantees both). No alignment
+/// is required (unaligned loads/stores throughout).
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx")]
 unsafe fn kf_bfly5_avx_inner(
@@ -950,8 +1205,14 @@ unsafe fn kf_bfly5_avx_inner(
     n: usize,
     mm: usize,
 ) {
-    let ya = KissCpx::new(0.309_017, -0.95105652);
-    let yb = KissCpx::new(-0.809_017, -0.58778525);
+    use std::arch::x86_64::*;
+    let ya_r = _mm256_set1_ps(0.309_017);
+    let ya_i = _mm256_set1_ps(-0.95105652);
+    let yb_r = _mm256_set1_ps(-0.809_017);
+    let yb_i = _mm256_set1_ps(-0.58778525);
+    // Sign mask for exact negation (xor flips only the sign bit).
+    let sign = _mm256_set1_ps(-0.0);
+    let ptr = fout.as_mut_ptr() as *mut f32;
 
     for i in 0..n {
         let base = i * mm;
@@ -962,8 +1223,108 @@ unsafe fn kf_bfly5_avx_inner(
         let mut tw2 = 0usize;
         let mut tw3 = 0usize;
         let mut tw4 = 0usize;
+        let mut u = 0usize;
 
-        for u in 0..m {
+        // Vector body: 4 consecutive u values.
+        while u + 4 <= m {
+            let idx0 = base + u;
+            let idx1 = idx0 + m;
+            let idx2 = idx0 + 2 * m;
+            let idx3 = idx0 + 3 * m;
+            let idx4 = idx0 + 4 * m;
+
+            let s0 = _mm256_loadu_ps(ptr.add(2 * idx0));
+            let f1 = _mm256_loadu_ps(ptr.add(2 * idx1));
+            let f2 = _mm256_loadu_ps(ptr.add(2 * idx2));
+            let f3 = _mm256_loadu_ps(ptr.add(2 * idx3));
+            let f4 = _mm256_loadu_ps(ptr.add(2 * idx4));
+
+            let t1 = avx_load_twiddles_4(twiddles, tw1, fstride);
+            let t2 = avx_load_twiddles_4(twiddles, tw2, stride2);
+            let t3 = avx_load_twiddles_4(twiddles, tw3, stride3);
+            let t4 = avx_load_twiddles_4(twiddles, tw4, stride4);
+
+            let s1 = avx_cmul_4(f1, t1);
+            let s2 = avx_cmul_4(f2, t2);
+            let s3 = avx_cmul_4(f3, t3);
+            let s4 = avx_cmul_4(f4, t4);
+
+            let s7 = _mm256_add_ps(s1, s4);
+            let s10 = _mm256_sub_ps(s1, s4);
+            let s8 = _mm256_add_ps(s2, s3);
+            let s9 = _mm256_sub_ps(s2, s3);
+
+            // fout[idx0] = s0 + s7 + s8 (left-to-right, as scalar).
+            _mm256_storeu_ps(ptr.add(2 * idx0), _mm256_add_ps(_mm256_add_ps(s0, s7), s8));
+
+            // Duplicated real/imag parts for the ya/yb intermediates.
+            let s0r = _mm256_moveldup_ps(s0);
+            let s0i = _mm256_movehdup_ps(s0);
+            let s7r = _mm256_moveldup_ps(s7);
+            let s7i = _mm256_movehdup_ps(s7);
+            let s8r = _mm256_moveldup_ps(s8);
+            let s8i = _mm256_movehdup_ps(s8);
+            let s9r = _mm256_moveldup_ps(s9);
+            let s9i = _mm256_movehdup_ps(s9);
+            let s10r = _mm256_moveldup_ps(s10);
+            let s10i = _mm256_movehdup_ps(s10);
+
+            // scratch5 = (s0 + s7*ya.r + s8*yb.r, s0i + s7i*ya.r + s8i*yb.r).
+            let s5 = _mm256_blend_ps(
+                _mm256_add_ps(
+                    _mm256_add_ps(s0r, _mm256_mul_ps(s7r, ya_r)),
+                    _mm256_mul_ps(s8r, yb_r),
+                ),
+                _mm256_add_ps(
+                    _mm256_add_ps(s0i, _mm256_mul_ps(s7i, ya_r)),
+                    _mm256_mul_ps(s8i, yb_r),
+                ),
+                0xAA,
+            );
+            // scratch6 = (s10i*ya.i + s9i*yb.i, -(s10r*ya.i + s9r*yb.i)).
+            let s6 = _mm256_blend_ps(
+                _mm256_add_ps(_mm256_mul_ps(s10i, ya_i), _mm256_mul_ps(s9i, yb_i)),
+                _mm256_xor_ps(
+                    _mm256_add_ps(_mm256_mul_ps(s10r, ya_i), _mm256_mul_ps(s9r, yb_i)),
+                    sign,
+                ),
+                0xAA,
+            );
+            _mm256_storeu_ps(ptr.add(2 * idx1), _mm256_sub_ps(s5, s6));
+            _mm256_storeu_ps(ptr.add(2 * idx4), _mm256_add_ps(s5, s6));
+
+            // scratch11 = (s0 + s7*yb.r + s8*ya.r, s0i + s7i*yb.r + s8i*ya.r).
+            let s11 = _mm256_blend_ps(
+                _mm256_add_ps(
+                    _mm256_add_ps(s0r, _mm256_mul_ps(s7r, yb_r)),
+                    _mm256_mul_ps(s8r, ya_r),
+                ),
+                _mm256_add_ps(
+                    _mm256_add_ps(s0i, _mm256_mul_ps(s7i, yb_r)),
+                    _mm256_mul_ps(s8i, ya_r),
+                ),
+                0xAA,
+            );
+            // scratch12 = (s9i*ya.i - s10i*yb.i, s10r*yb.i - s9r*ya.i).
+            let s12 = _mm256_blend_ps(
+                _mm256_sub_ps(_mm256_mul_ps(s9i, ya_i), _mm256_mul_ps(s10i, yb_i)),
+                _mm256_sub_ps(_mm256_mul_ps(s10r, yb_i), _mm256_mul_ps(s9r, ya_i)),
+                0xAA,
+            );
+            _mm256_storeu_ps(ptr.add(2 * idx2), _mm256_add_ps(s11, s12));
+            _mm256_storeu_ps(ptr.add(2 * idx3), _mm256_sub_ps(s11, s12));
+
+            tw1 += 4 * fstride;
+            tw2 += 4 * stride2;
+            tw3 += 4 * stride3;
+            tw4 += 4 * stride4;
+            u += 4;
+        }
+
+        // Scalar tail for m % 4 (and for m < 4): the original body.
+        let ya = KissCpx::new(0.309_017, -0.95105652);
+        let yb = KissCpx::new(-0.809_017, -0.58778525);
+        for u in u..m {
             let idx0 = base + u;
             let idx1 = idx0 + m;
             let idx2 = idx0 + 2 * m;
@@ -1655,5 +2016,154 @@ mod tests {
             "  Throughput: {:.2} M points/sec",
             (nfft as f64) / ns_per_iter * 1000.0
         );
+    }
+
+    /// Bit-exactness of the AVX radix-4 `m > 1` kernel: the AVX path must
+    /// produce bit-identical output to the scalar body (same float ops in
+    /// the same order, no FMA). Runs the radix-4 `m > 1` stage directly
+    /// and the whole `opus_fft_impl` (all stages), uncapped vs capped to
+    /// SCALAR, and compares every lane bit-for-bit.
+    #[test]
+    fn test_bfly4_mm_avx_bitexact() {
+        use crate::isa::oracle::Rng;
+        // (nfft, m, n, mm, fstride) of a radix-4 m>1 stage in that FFT.
+        let cases = [
+            (480usize, 8usize, 15usize, 32usize, 15usize),
+            (240usize, 4usize, 15usize, 16usize, 15usize),
+        ];
+        for (nfft, m, n, mm, fstride) in cases {
+            let st = KissFftState::new(nfft).unwrap();
+            let mut r = Rng(0x4b46_7934_0000_0001 ^ nfft as u64);
+            let mut mk = || {
+                (0..nfft)
+                    .map(|_| KissCpx::new(r.f32(1.0), r.f32(1.0)))
+                    .collect::<Vec<_>>()
+            };
+            // Direct stage test.
+            let mut a = mk();
+            let mut b = a.clone();
+            kf_bfly4(&mut a, fstride, &st.twiddles, m, n, mm);
+            crate::isa::with_cap(crate::isa::SCALAR, || {
+                kf_bfly4(&mut b, fstride, &st.twiddles, m, n, mm);
+            });
+            for i in 0..nfft {
+                assert_eq!(
+                    a[i].r.to_bits(),
+                    b[i].r.to_bits(),
+                    "bfly4 r[{i}] nfft={nfft}"
+                );
+                assert_eq!(
+                    a[i].i.to_bits(),
+                    b[i].i.to_bits(),
+                    "bfly4 i[{i}] nfft={nfft}"
+                );
+            }
+            // Whole-FFT test (all stages, incl. the radix-4 m>1 one).
+            let mut a = mk();
+            let mut b = a.clone();
+            opus_fft_impl(&st, &mut a);
+            crate::isa::with_cap(crate::isa::SCALAR, || opus_fft_impl(&st, &mut b));
+            for i in 0..nfft {
+                assert_eq!(a[i].r.to_bits(), b[i].r.to_bits(), "fft r[{i}] nfft={nfft}");
+                assert_eq!(a[i].i.to_bits(), b[i].i.to_bits(), "fft i[{i}] nfft={nfft}");
+            }
+        }
+    }
+
+    /// Bit-exactness of the AVX radix-5 and radix-3 `m > 1` kernels:
+    /// same setup as `test_bfly4_mm_avx_bitexact` (uncapped vs SCALAR,
+    /// bit-for-bit), for the radix-5 and radix-3 `m > 1` stages.
+    #[test]
+    fn test_bfly35_mm_avx_bitexact() {
+        use crate::isa::oracle::Rng;
+        // (nfft, m, n, mm, fstride) of the radix-5 and radix-3 m>1 stages.
+        let cases5 = [
+            (480usize, 96usize, 1usize, 480usize, 1usize),
+            (240usize, 48usize, 1usize, 240usize, 1usize),
+        ];
+        let cases3 = [
+            (480usize, 32usize, 5usize, 96usize, 5usize),
+            (240usize, 16usize, 5usize, 48usize, 5usize),
+        ];
+        for (nfft, m, n, mm, fstride) in cases5 {
+            let st = KissFftState::new(nfft).unwrap();
+            let mut r = Rng(0x35f1_0000_0000_0001 ^ nfft as u64);
+            let mut a: Vec<KissCpx> = (0..nfft)
+                .map(|_| KissCpx::new(r.f32(1.0), r.f32(1.0)))
+                .collect();
+            let mut b = a.clone();
+            kf_bfly5(&mut a, fstride, &st.twiddles, m, n, mm);
+            crate::isa::with_cap(crate::isa::SCALAR, || {
+                kf_bfly5(&mut b, fstride, &st.twiddles, m, n, mm);
+            });
+            for i in 0..nfft {
+                assert_eq!(
+                    a[i].r.to_bits(),
+                    b[i].r.to_bits(),
+                    "bfly5 r[{i}] nfft={nfft}"
+                );
+                assert_eq!(
+                    a[i].i.to_bits(),
+                    b[i].i.to_bits(),
+                    "bfly5 i[{i}] nfft={nfft}"
+                );
+            }
+        }
+        for (nfft, m, n, mm, fstride) in cases3 {
+            let st = KissFftState::new(nfft).unwrap();
+            let mut r = Rng(0x33f1_0000_0000_0001 ^ nfft as u64);
+            let mut a: Vec<KissCpx> = (0..nfft)
+                .map(|_| KissCpx::new(r.f32(1.0), r.f32(1.0)))
+                .collect();
+            let mut b = a.clone();
+            kf_bfly3(&mut a, fstride, &st.twiddles, m, n, mm);
+            crate::isa::with_cap(crate::isa::SCALAR, || {
+                kf_bfly3(&mut b, fstride, &st.twiddles, m, n, mm);
+            });
+            for i in 0..nfft {
+                assert_eq!(
+                    a[i].r.to_bits(),
+                    b[i].r.to_bits(),
+                    "bfly3 r[{i}] nfft={nfft}"
+                );
+                assert_eq!(
+                    a[i].i.to_bits(),
+                    b[i].i.to_bits(),
+                    "bfly3 i[{i}] nfft={nfft}"
+                );
+            }
+        }
+    }
+
+    /// Bit-exactness of the AVX radix-2 `m > 1` kernel: uncapped vs
+    /// SCALAR, bit-for-bit, for the radix-2 `m > 1` stages (m = 4,
+    /// n = fstride_i). The factored constant twiddles are the reason
+    /// this kernel builds its twiddled operand lane by lane instead of
+    /// using the general complex multiply.
+    #[test]
+    fn test_bfly2_mm_avx_bitexact() {
+        use crate::isa::oracle::Rng;
+        // (nfft, m, n) of the radix-2 m>1 stages.
+        for (nfft, m, n) in [(480usize, 4usize, 60usize), (120usize, 4usize, 15usize)] {
+            let mut r = Rng(0x32f1_0000_0000_0001 ^ nfft as u64);
+            let mut a: Vec<KissCpx> = (0..nfft)
+                .map(|_| KissCpx::new(r.f32(1.0), r.f32(1.0)))
+                .collect();
+            let mut b = a.clone();
+            kf_bfly2(&mut a, m, n);
+            crate::isa::with_cap(crate::isa::SCALAR, || kf_bfly2(&mut b, m, n));
+            for i in 0..nfft {
+                assert_eq!(
+                    a[i].r.to_bits(),
+                    b[i].r.to_bits(),
+                    "bfly2 r[{i}] nfft={nfft}"
+                );
+                assert_eq!(
+                    a[i].i.to_bits(),
+                    b[i].i.to_bits(),
+                    "bfly2 i[{i}] nfft={nfft}"
+                );
+            }
+        }
     }
 }

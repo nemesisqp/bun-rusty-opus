@@ -88,6 +88,50 @@ authoritative one.
 - **Bit-preservation:** inlining only; identical instructions.
 - **Measured:** sub-1% (folded into the patches 1–3 total above).
 
+### 4. FFT `m > 1` butterfly AVX kernels (`src/kiss_fft.rs`)
+- **Why:** the profiler showed the FFT (`opus_fft_impl`, inside
+  `mdct.backward`) is ~4.4 ms of decode (~12% on sine) and its `m > 1`
+  stages are 3.8 ms (~11%) — the `m == 1` stage was already AVX-covered
+  and the pre/post rotations already have AVX kernels. The `m > 1`
+  stages had only scalar bodies compiled with `#[target_feature(enable
+  = "avx")]` (the crate's own pattern), which LLVM does not
+  auto-vectorise (strided groups), so they ran scalar.
+- **What:** explicit-intrinsic AVX (256-bit, 4 complex per vector)
+  kernels for all four radices' `m > 1` stages, dispatched from
+  `kf_bfly2/3/4/5` when `avx()` is true, with a scalar tail for
+  `m % 4`:
+  - `avx_cmul_4` — complex multiply of 4 interleaved pairs, mirroring
+    the NEON `neon_cmul_2` helper (dup + mul + add; the real part is
+    formed as `ar*br + (-(ai*bi))`, bit-identical to `ar*br - ai*bi`).
+  - `avx_load_twiddles_4` — loads 4 strided twiddle complex values
+    (twiddles advance by `fstride` per `j`) via scalar loads + set.
+  - `kf_bfly4_avx_inner`, `kf_bfly5_avx_inner`, `kf_bfly3_avx_inner`
+    — rewritten with explicit intrinsics (4 consecutive `j` per
+    iteration; the four `fout` partners are each contiguous loads).
+  - `kf_bfly2_mm_avx` — the radix-2 `m > 1` stage. Its twiddles are
+    factored constants (`(sum) * tw`), so a general `c_mul` would NOT
+    be bit-exact (two products + add vs one add + one product, different
+    rounding); the twiddled operand is built lane by lane from the
+    duplicated real/imag parts using the scalar's own factored sums.
+  - The `ya`/`yb` (radix-5) and `epi3_i` (radix-3) intermediates mix
+    real and imaginary parts, so they are built from duplicated
+    real/imag vectors and interleaved with a 0xAA blend.
+- **Bit-preservation:** same float ops in the same order per lane, no
+  FMA, no reassociation. Guarded by the unit tests
+  `test_bfly4_mm_avx_bitexact`, `test_bfly35_mm_avx_bitexact`,
+  `test_bfly2_mm_avx_bitexact` (exact `to_bits()` equality vs the
+  scalar body, uncapped vs capped to SCALAR) and by the pristine-vs-
+  patched parity harness.
+- **Measured:** FFT kernels together move the JS bench decode from
+  32.5 ms to ~30.1 ms per 10 s of 48 kHz stereo (ratio vs libopus
+  0.77x → 0.82x, overall 1.16x → 1.23x; encode also improves,
+  80.8 → 75.7 ms, 1.32x → 1.40x, because encode uses the same FFT).
+  Radix-4 alone gave ~0.6 ms; radix-5 + radix-3 gave ~1.9 ms more;
+  radix-2 gave ~0.1 ms (within noise — its factored twiddles make it
+  the smallest, most shuffle-heavy stage). Short of the hoped-for 10%
+  because the `m > 1` stages are only ~11% of decode and the rest
+  (PVQ scaffolding, postfilter, rotations) does not vectorise.
+
 ### 3. SIG_SAT clamp loop slices first (`src/celt.rs`)
 - **Why:** the decode-tail saturation clamp indexed
   `decode_mem[offset + i]` with a computed index, forcing a bounds
@@ -122,7 +166,7 @@ authoritative one.
   compare, ~20k–100k steps per 10 s of audio, i.e. <0.2 ms. A binary
   search would need ~7 lookups for the common cases — no win. Dropped.
 
-### `kf_bfly2` AVX inner for the `m > 1` stage
+### `kf_bfly2` AVX inner for the `m > 1` stage (scalar-body extraction)
 - **Why it looked promising:** the radix-2 FFT stage's `m > 1` branch
   had no AVX kernel (only the `m == 1` case did), and the audit
   estimated ~4–5% of decode.
@@ -131,9 +175,10 @@ authoritative one.
   `kf_bfly3/4/5_avx_inner`) and dispatched to it when `avx()` is true.
 - **Measurement:** decode ratio unchanged (0.80x, overall 1.15x, two
   runs) — LLVM does not auto-vectorise this loop (strided 8-element
-  groups), so the patch was a no-op. Reverted. An explicit-intrinsic
-  version could still work but was judged not worth the shuffle-heavy
-  code and bit-exactness risk for ~1 ms.
+  groups), so the patch was a no-op. Reverted. (The explicit-intrinsic
+  version was later built as part of patch 4 — see above — and it does
+  work, but only for ~0.1 ms, confirming the original judgement that
+  this stage is small.)
 
 ### `stereo_itheta` SIMD (skipped, not bit-exact)
 - Vectorising it changes the dot-product summation order, which can flip

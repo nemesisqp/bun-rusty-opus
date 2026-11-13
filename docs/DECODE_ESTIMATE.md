@@ -103,6 +103,38 @@ parity, 44/44; JS interop vs libopus within 1 s16 LSB; PLC sanity)
 all pass, and the fork is kept because the ~3% is real and the harness
 makes future patches cheap to validate.
 
+## Actual outcome, continued — FFT `m > 1` AVX kernels (2026-11-13)
+
+Phuong asked to go after the FFT anyway ("hope get back 10% is already
+big win"). Measured first with the profiler (new `mdct-fft` / `fft-m1` /
+`fft-m>1` stages): the FFT is 4.4 ms of decode on every content type
+(~12% on sine), and the `m > 1` stages are 3.8 ms (~11%) — so the
+ceiling for all FFT `m > 1` work is ~11%, and a 2–3x kernel speedup
+would give ~5–7%. The stage walk for nfft = 480 is radix-4 (m = 1),
+radix-2 (m = 4), radix-4 (m = 8), radix-3 (m = 32), radix-5 (m = 96);
+work is spread evenly across radices 2/3/4/5 (18/25/28/29%).
+
+Explicit-intrinsic AVX kernels were built for all four radices' `m > 1`
+stages (`vendor/rusty-opus/src/kiss_fft.rs`, patch 4 in
+`vendor/rusty-opus/PATCHES.md`): `avx_cmul_4` (mirrors the NEON
+`neon_cmul_2`), `avx_load_twiddles_4`, and rewritten
+`kf_bfly4/5/3_avx_inner` plus a new `kf_bfly2_mm_avx`. The radix-2
+kernel is the awkward one — its twiddles are factored constants, so a
+general complex multiply would not be bit-exact and the twiddled
+operand is built lane by lane. All four are guarded by bit-exact unit
+tests (exact `to_bits()` vs scalar) and the parity harness.
+
+Result (JS bench, best of 3, this VM): decode **32.5 → ~30.1 ms**
+(~7.5% faster), ratio vs libopus **0.77x → 0.82x**, overall
+**1.16x → 1.23x**. Encode also improves (80.8 → 75.7 ms, 1.32x →
+1.40x) because encode uses the same FFT. Radix-4 alone gave ~0.6 ms;
+radix-5 + radix-3 gave ~1.9 ms more; radix-2 gave ~0.1 ms (within
+noise). Short of the hoped-for 10%: the `m > 1` stages were only ~11%
+of decode and the kernels recovered ~2.4 of those 3.8 ms; the rest
+(PVQ scaffolding, postfilter, rotations) does not vectorise. The
+remaining gap to libopus (~25.3 ms decode) is now ~5 ms, mostly the
+serial PVQ/postfilter work identified in the original estimate.
+
 ## Caveats
 
 - The realistic case assumes the three stages respond as estimated;
