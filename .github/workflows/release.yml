@@ -142,7 +142,12 @@ jobs:
             echo "$triple <- $f"
           done
           ls npm/*/ | head -40
-      - run: npx napi prepublish
+      # --no-gh-release: by default prepublish also creates a GitHub
+      # Release, which needs a lerna-style release commit ("chore(release):
+      # publish / - @ndqp/bun-rusty-opus@x.y.z") — our tagged commits are
+      # normal commits, so it dies with "No release commit found". We only
+      # publish to npm, so skip the GitHub Release entirely.
+      - run: npx napi prepublish --no-gh-release
       - name: Publish main package
         run: npm publish --access public
         env:
