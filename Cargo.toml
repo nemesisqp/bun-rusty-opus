@@ -1,6 +1,6 @@
 [package]
 name = "bun-rusty-opus"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 description = "Bun/Node bindings to rusty-opus — a pure-Rust Opus codec, ~1.5x faster than libopus"
 license = "MIT"
@@ -17,7 +17,12 @@ napi = { version = "3", default-features = false, features = ["napi9"] }
 napi-derive = "3"
 # Exact pin: the API surface (f32-only encode/decode, public-field settings)
 # is verified against 1.0.2. See docs/research-rusty-opus.md.
+# Vendored + patched for decode performance: [patch.crates-io] below
+# redirects this to vendor/rusty-opus (base 1.0.2, see its PATCHES.md).
 rusty-opus = "=1.0.2"
+
+[patch.crates-io]
+rusty-opus = { path = "vendor/rusty-opus" }
 
 [build-dependencies]
 napi-build = "2"
