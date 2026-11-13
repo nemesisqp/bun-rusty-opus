@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (on main, not published)
+## 0.2.2 — 2026-11-13
 
 - Rebased the vendored rusty-opus fork from 1.0.2 to upstream **1.1.0**
   (performance release, 2026-11-13, no API change, bit-identical
