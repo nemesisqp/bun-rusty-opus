@@ -12,14 +12,15 @@ re-run the bench on your own hardware.
 
 | codec (bitrate matched at 64 kbps) | encode | decode | total |
 | --- | --- | --- | --- |
-| @ndqp/bun-rusty-opus (v0.2.0) | ~68 ms | ~28 ms | ~96 ms |
+| @ndqp/bun-rusty-opus (v0.2.2) | ~60 ms | ~25 ms | ~84 ms |
 | @discordjs/opus 0.11.0 (libopus) | ~89 ms | ~22 ms | ~111 ms |
 
-Across runs: **encode 1.28–1.31x faster, decode 0.80x (slower),
-overall 1.14–1.15x**. Both codecs run ~90–100x realtime on this VM
-(~4900–5200 frames/s). v0.1.0 decoded at ~33 ms; v0.1.1's SIMD
+Across runs: **encode 1.35–1.49x faster, decode 0.88–0.90x (slower),
+overall 1.22–1.32x**. Both codecs run ~90–120x realtime on this VM
+(~5900 frames/s for ours). v0.1.0 decoded at ~33 ms; v0.1.1's SIMD
 f32→i16 conversion brought it to ~29 ms; v0.2.0's vendored-fork
-patches (below) to ~28 ms.
+patches (below) to ~28 ms; the FFT AVX kernels + the rusty-opus 1.1.0
+rebase (v0.2.2) to ~25 ms.
 
 ### What the "1.5x faster" claim really means
 

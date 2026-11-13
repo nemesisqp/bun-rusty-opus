@@ -127,14 +127,15 @@ Measured on this VM (shared 1.5 CPU, portable build), 10 s of 48 kHz
 stereo, 20 ms frames, bitrate matched at 64 kbps — see
 `docs/PERFORMANCE.md` for method and full numbers:
 
-- **encode ~1.3x faster** than @discordjs/opus (libopus)
-- **decode ~0.77x** (slower than libopus; was 0.66x before v0.1.1's SIMD
-  f32→i16 conversion — see `docs/PERFORMANCE.md` for the breakdown)
-- **overall ~1.15x**
+- **encode ~1.47x faster** than @discordjs/opus (libopus)
+- **decode ~0.89x** (slower than libopus; was 0.66x before v0.1.1's SIMD
+  f32→i16 conversion, 0.77x before the FFT kernels, 0.82x before the
+  rusty-opus 1.1.0 rebase — see `docs/PERFORMANCE.md` for the breakdown)
+- **overall ~1.30x**
 
 The crate's "1.5x faster" claim is about **encode** (CELT), which our
-measurements support (1.27–1.39x). It is not an overall figure, and this
-README does not present it as one. Both codecs run ~90–100x realtime here.
+measurements support (1.35–1.49x). It is not an overall figure, and this
+README does not present it as one. Both codecs run ~90–120x realtime here.
 
 ## Why no `target-cpu=native` in the published builds?
 
