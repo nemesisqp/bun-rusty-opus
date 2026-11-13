@@ -25,7 +25,7 @@ npm install @ndqp/bun-rusty-opus
 bun install @ndqp/bun-rusty-opus
 ```
 
-**Prebuilt binaries only.** The package ships napi prebuilts for 8
+**Prebuilt binaries only.** The package ships napi prebuilts for 7
 platforms (below). There is no install-time build and no fallback to
 compiling from source: if no prebuilt fits your machine, install **fails**
 with a clear error (`ERR_BUN_RUSTY_OPUS_NO_PREBUILT`) instead of silently
@@ -35,7 +35,7 @@ developing this package itself, `npm run build` (or
 
 | OS | x86_64 | arm64 |
 | --- | --- | --- |
-| macOS | `darwin-x64` | `darwin-arm64` |
+| macOS | — (Intel Mac unsupported) | `darwin-arm64` |
 | Windows | `win32-x64-msvc` | `win32-arm64-msvc` |
 | Linux glibc | `linux-x64-gnu` | `linux-arm64-gnu` |
 | Linux musl (Alpine) | `linux-x64-musl` | `linux-arm64-musl` |

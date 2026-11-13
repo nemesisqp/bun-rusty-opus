@@ -49,7 +49,7 @@ First release.
 - Zero-copy Buffers (`BufferSlice`) and zero-allocation hot path
   (`encodeInto`/`decodeInto` with caller-provided output buffers; reused
   f32 scratch; no heap allocation per frame after warm-up).
-- Prebuilt napi binaries for 8 platforms via GitHub Actions; install fails
+- Prebuilt napi binaries for 7 platforms via GitHub Actions; install fails
   (`ERR_BUN_RUSTY_OPUS_NO_PREBUILT`) when no prebuilt fits — no
   install-time source build anywhere.
 - `encoder.preSkip` / `opusPreSkip(rate, application)`: the real
