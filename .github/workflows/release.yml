@@ -82,9 +82,21 @@ jobs:
       # never installs zig itself) plus cargo-zigbuild (auto-installed
       # by the CLI on first use, but pre-installing is faster). The old
       # `--zig` flag was removed in napi-rs CLI v3.
+      #
+      # Zig is downloaded directly instead of via mlugg/setup-zig:
+      # that action's latest release still runs on Node.js 20, so it
+      # triggers the Node 20 deprecation warning, and there is no
+      # Node 24 release of it. A plain shell step has no JS runtime
+      # and warns about nothing. Pinned to the latest stable at the
+      # time of writing; bump ZIG_VERSION when zig ships a new stable.
       - name: Install zig (musl targets)
         if: endsWith(matrix.settings.target, '-musl')
-        uses: mlugg/setup-zig@v2
+        run: |
+          ZIG_VERSION=0.17.1
+          curl -L "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz
+          tar -xf /tmp/zig.tar.xz -C /tmp
+          echo "/tmp/zig-x86_64-linux-${ZIG_VERSION}" >> "$GITHUB_PATH"
+          zig version
       - name: Install cargo-zigbuild (musl targets)
         if: endsWith(matrix.settings.target, '-musl')
         uses: taiki-e/install-action@cargo-zigbuild
