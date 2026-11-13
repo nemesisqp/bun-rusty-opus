@@ -49,19 +49,19 @@ jobs:
             build: npm run build -- --target aarch64-unknown-linux-gnu
           - host: ubuntu-22.04
             target: x86_64-unknown-linux-musl
-            build: npm run build -- --target x86_64-unknown-linux-musl --zig
+            build: npm run build -- --target x86_64-unknown-linux-musl --cross-compile
           - host: ubuntu-22.04
             target: aarch64-unknown-linux-musl
-            build: npm run build -- --target aarch64-unknown-linux-musl --zig
+            build: npm run build -- --target aarch64-unknown-linux-musl --cross-compile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.settings.target }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -70,7 +70,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
+      # Without this, cargo links aarch64 objects with the host x86_64
+      # `cc`, which chokes on the AArch64-only
+      # `--fix-cortex-a53-843419` flag (rust-lld: "only supported on
+      # AArch64"). The cross gcc handles it.
+      - name: Use the aarch64 cross linker
+        if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
+        run: echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+      # musl builds go through `napi build --cross-compile`, which runs
+      # `cargo zigbuild` — that needs the zig compiler on PATH (the CLI
+      # never installs zig itself) plus cargo-zigbuild (auto-installed
+      # by the CLI on first use, but pre-installing is faster). The old
+      # `--zig` flag was removed in napi-rs CLI v3.
       - name: Install zig (musl targets)
+        if: endsWith(matrix.settings.target, '-musl')
+        uses: mlugg/setup-zig@v2
+      - name: Install cargo-zigbuild (musl targets)
         if: endsWith(matrix.settings.target, '-musl')
         uses: taiki-e/install-action@cargo-zigbuild
       - run: npm ci
@@ -79,7 +94,7 @@ jobs:
       - run: ${{ matrix.settings.build }}
         env:
           RUSTFLAGS: ''
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: bindings-${{ matrix.settings.target }}
           path: '*.node'
@@ -92,14 +107,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: bindings-*
           path: artifacts
