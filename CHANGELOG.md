@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-11-13
+
+- Republish of 0.2.0 with no code changes: the `win32-x64-msvc`
+  platform package was accidentally deleted from npm, and npm does not
+  allow republishing an unpublished version, so the whole release had
+  to move to 0.2.1.
+
 ## 0.2.0 — 2026-11-13
 
 - Vendored rusty-opus 1.0.2 into `vendor/rusty-opus/` with

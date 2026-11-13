@@ -3,7 +3,7 @@
   "bugs": {
     "url": "https://github.com/nemesisqp/bun-rusty-opus/issues"
   },
-  "description": "Personal test project (not production ready): Bun/Node bindings to rusty-opus \u2014 a pure-Rust Opus codec by jinti and the Remade-With-Rust team, faster to encode than libopus. Drop-in replacement for @discordjs/opus (by iCrawl and the discord.js team).",
+  "description": "Personal test project (not production ready): Bun/Node bindings to rusty-opus — a pure-Rust Opus codec by jinti and the Remade-With-Rust team, faster to encode than libopus. Drop-in replacement for @discordjs/opus (by iCrawl and the discord.js team).",
   "devDependencies": {
     "@discordjs/opus": "^0.11.0",
     "@napi-rs/cli": "^3.10.12",
@@ -76,5 +76,5 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "types": "index.d.ts",
-  "version": "0.2.0"
+  "version": "0.2.1"
 }
