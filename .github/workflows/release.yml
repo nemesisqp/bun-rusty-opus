@@ -96,7 +96,9 @@ jobs:
           curl -L "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz
           tar -xf /tmp/zig.tar.xz -C /tmp
           echo "/tmp/zig-x86_64-linux-${ZIG_VERSION}" >> "$GITHUB_PATH"
-          zig version
+          # NOTE: $GITHUB_PATH only applies to LATER steps, so the
+          # verification here must call zig by its full path.
+          /tmp/zig-x86_64-linux-${ZIG_VERSION}/zig version
       - name: Install cargo-zigbuild (musl targets)
         if: endsWith(matrix.settings.target, '-musl')
         uses: taiki-e/install-action@cargo-zigbuild
