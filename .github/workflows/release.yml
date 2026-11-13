@@ -147,7 +147,19 @@ jobs:
       # publish / - @ndqp/bun-rusty-opus@x.y.z") — our tagged commits are
       # normal commits, so it dies with "No release commit found". We only
       # publish to npm, so skip the GitHub Release entirely.
-      - run: npx napi prepublish --no-gh-release
+      # --skip-optional-publish: prepublish would publish the platform
+      # packages itself (without --access public, so they'd default to
+      # restricted), and then the "Publish platform packages" step below
+      # would try to publish the same versions again and fail. Let that
+      # step do the publishing, with --access public.
+      # NODE_AUTH_TOKEN is required here too: prepublish runs `npm publish`
+      # internally, and setup-node's .npmrc reads the token from this env
+      # var. Without it the publish goes out unauthenticated and npm
+      # answers 404 (it returns 404 instead of 401 to avoid leaking
+      # whether a package exists).
+      - run: npx napi prepublish --no-gh-release --skip-optional-publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish main package
         run: npm publish --access public
         env:
