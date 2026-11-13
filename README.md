@@ -1,11 +1,21 @@
 # bun-rusty-opus
 
+> **Personal project — quick test, not production ready.** This is an
+> experiment for trying out rusty-opus under Bun/Node. It is not
+> hardened, not audited, and not supported for production use. If you
+> need a production Opus binding, use
+> [@discordjs/opus](https://www.npmjs.com/package/@discordjs/opus) —
+> the battle-tested libopus binding whose API this project mirrors.
+
 Bun/Node bindings to [rusty-opus](https://crates.io/crates/rusty-opus) — a
-**pure-Rust Opus codec** (RFC 6716/8251, no C, no libopus, no FFI).
+**pure-Rust Opus codec** (RFC 6716/8251, no C, no libopus, no FFI) by
+jinti and the Remade-With-Rust team (see [Credits](#credits)).
 Drop-in replacement for
 [@discordjs/opus](https://www.npmjs.com/package/@discordjs/opus), with the
 same `OpusEncoder` shape discord.js voice uses — but the codec underneath
-is Rust, and encode is faster.
+is Rust, and encode is faster. This project is only the thin binding
+between the two; the codec and the API it mirrors are other people's
+work, credited below.
 
 ## Install
 
@@ -154,7 +164,34 @@ prebuilts and publishes the main package plus the platform packages to
 npm (needs the `NPM_TOKEN` secret). `docs/DESIGN.md` documents the
 binding layout, the loader, and the gotchas found while building this.
 
+## Credits
+
+This project is a thin binding — almost all of the hard work is other
+people's:
+
+- **rusty-opus** — the codec itself: a pure-Rust port of libopus by
+  **jinti** (`shenjindi@fourz.cn`) and the **Remade-With-Rust** team
+  ([github.com/Remade-With-Rust/rusty-opus](https://github.com/Remade-With-Rust/rusty-opus),
+  BSD-3-Clause). The SILK/CELT/Hybrid implementation, the SIMD kernels,
+  the bit-exact RFC test vectors — all theirs. v0.2.0 vendors their
+  1.0.2 release with a few small decode patches (see
+  `vendor/rusty-opus/PATCHES.md`); the patches are mine, the codec is
+  theirs.
+- **The Opus codec** — rusty-opus is a port of libopus, whose authors
+  are Xiph.Org, Skype Limited, Octasic, Jean-Marc Valin, Timothy B.
+  Terriberry and contributors (full copyright notice in
+  `vendor/rusty-opus/COPYING`).
+- **@discordjs/opus** — by **iCrawl** (`icrawltogo@gmail.com`) and the
+  discord.js team ([github.com/discordjs/opus](https://github.com/discordjs/opus),
+  MIT). This binding mirrors its `OpusEncoder` API and uses it as the
+  interop reference in every test and bench. If this project looks
+  familiar, that is why.
+- **napi-rs** — the binding framework that makes the Rust↔JS boundary
+  work.
+
 ## License
 
-MIT. The codec is [rusty-opus](https://crates.io/crates/rusty-opus)
-(BSD-3-Clause).
+MIT for the binding code in this repo. rusty-opus (including the
+vendored copy in `vendor/rusty-opus/`) is BSD-3-Clause; @discordjs/opus
+is MIT. See `vendor/rusty-opus/COPYING` for the codec's copyright
+notice.
