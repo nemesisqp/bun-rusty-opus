@@ -23,24 +23,24 @@ const isSourceCheckout = fs.existsSync(path.join(root, 'Cargo.toml')) && fs.exis
 const skipEnv = process.env.BUN_RUSTY_OPUS_SKIP_PREBUILT_CHECK === '1';
 
 if (skipEnv) {
-  console.log('bun-rusty-opus: prebuilt check skipped (BUN_RUSTY_OPUS_SKIP_PREBUILT_CHECK=1)');
+  console.log('@ndqp/bun-rusty-opus: prebuilt check skipped (BUN_RUSTY_OPUS_SKIP_PREBUILT_CHECK=1)');
   process.exit(0);
 }
 
 try {
   require('../index.js');
-  console.log('bun-rusty-opus: prebuilt native binary OK');
+  console.log('@ndqp/bun-rusty-opus: prebuilt native binary OK');
 } catch (err) {
   console.error(`\n${err.message}\n`);
   if (isSourceCheckout) {
     console.error(
-      'bun-rusty-opus: source checkout detected — continuing anyway. ' +
+      '@ndqp/bun-rusty-opus: source checkout detected — continuing anyway. ' +
         'Build the binding locally with `npm run build` (or `npm run build:local` for a native-CPU build).\n',
     );
     process.exit(0);
   }
   console.error(
-    'bun-rusty-opus: install failed — no prebuilt binary for this platform and ' +
+    '@ndqp/bun-rusty-opus: install failed — no prebuilt binary for this platform and ' +
       'this package does not build from source on install.\n',
   );
   process.exit(1);

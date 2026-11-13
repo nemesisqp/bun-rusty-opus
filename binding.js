@@ -92,8 +92,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-android-arm64')
-        const bindingPackageVersion = require('bun-rusty-opus-android-arm64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-android-arm64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-android-arm64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -108,8 +108,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-android-arm-eabi')
-        const bindingPackageVersion = require('bun-rusty-opus-android-arm-eabi/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-android-arm-eabi')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-android-arm-eabi/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -129,8 +129,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-win32-x64-gnu')
-          const bindingPackageVersion = require('bun-rusty-opus-win32-x64-gnu/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-win32-x64-gnu')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-win32-x64-gnu/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -145,8 +145,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-win32-x64-msvc')
-          const bindingPackageVersion = require('bun-rusty-opus-win32-x64-msvc/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-win32-x64-msvc')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-win32-x64-msvc/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -162,8 +162,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-win32-ia32-msvc')
-        const bindingPackageVersion = require('bun-rusty-opus-win32-ia32-msvc/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-win32-ia32-msvc')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-win32-ia32-msvc/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -178,8 +178,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-win32-arm64-msvc')
-        const bindingPackageVersion = require('bun-rusty-opus-win32-arm64-msvc/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-win32-arm64-msvc')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-win32-arm64-msvc/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -197,8 +197,8 @@ function requireNative() {
       loadErrors.push(e)
     }
     try {
-      const binding = require('bun-rusty-opus-darwin-universal')
-      const bindingPackageVersion = require('bun-rusty-opus-darwin-universal/package.json').version
+      const binding = require('@ndqp/bun-rusty-opus-darwin-universal')
+      const bindingPackageVersion = require('@ndqp/bun-rusty-opus-darwin-universal/package.json').version
       if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
         throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
       }
@@ -213,8 +213,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-darwin-x64')
-        const bindingPackageVersion = require('bun-rusty-opus-darwin-x64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-darwin-x64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-darwin-x64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -229,8 +229,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-darwin-arm64')
-        const bindingPackageVersion = require('bun-rusty-opus-darwin-arm64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-darwin-arm64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-darwin-arm64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -249,8 +249,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-freebsd-x64')
-        const bindingPackageVersion = require('bun-rusty-opus-freebsd-x64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-freebsd-x64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-freebsd-x64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -265,8 +265,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-freebsd-arm64')
-        const bindingPackageVersion = require('bun-rusty-opus-freebsd-arm64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-freebsd-arm64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-freebsd-arm64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -281,8 +281,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-freebsd-ppc64')
-        const bindingPackageVersion = require('bun-rusty-opus-freebsd-ppc64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-freebsd-ppc64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-freebsd-ppc64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -302,8 +302,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-x64-musl')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-x64-musl/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-x64-musl')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-x64-musl/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -318,8 +318,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-x64-gnu')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-x64-gnu/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-x64-gnu')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-x64-gnu/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -336,8 +336,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-arm64-musl')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-arm64-musl/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-arm64-musl')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-arm64-musl/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -352,8 +352,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-arm64-gnu')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-arm64-gnu/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-arm64-gnu')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-arm64-gnu/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -370,8 +370,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-arm-musleabihf')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-arm-musleabihf/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-arm-musleabihf')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-arm-musleabihf/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -386,8 +386,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-arm-gnueabihf')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-arm-gnueabihf/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-arm-gnueabihf')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-arm-gnueabihf/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -404,8 +404,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-loong64-musl')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-loong64-musl/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-loong64-musl')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-loong64-musl/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -420,8 +420,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-loong64-gnu')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-loong64-gnu/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-loong64-gnu')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-loong64-gnu/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -438,8 +438,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-riscv64-musl')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-riscv64-musl/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-riscv64-musl')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-riscv64-musl/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -454,8 +454,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('bun-rusty-opus-linux-riscv64-gnu')
-          const bindingPackageVersion = require('bun-rusty-opus-linux-riscv64-gnu/package.json').version
+          const binding = require('@ndqp/bun-rusty-opus-linux-riscv64-gnu')
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-riscv64-gnu/package.json').version
           if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -471,8 +471,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-linux-ppc64-gnu')
-        const bindingPackageVersion = require('bun-rusty-opus-linux-ppc64-gnu/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-linux-ppc64-gnu')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-ppc64-gnu/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -487,8 +487,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-linux-s390x-gnu')
-        const bindingPackageVersion = require('bun-rusty-opus-linux-s390x-gnu/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-linux-s390x-gnu')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-linux-s390x-gnu/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -507,8 +507,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-openharmony-arm64')
-        const bindingPackageVersion = require('bun-rusty-opus-openharmony-arm64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-openharmony-arm64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-openharmony-arm64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -523,8 +523,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-openharmony-x64')
-        const bindingPackageVersion = require('bun-rusty-opus-openharmony-x64/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-openharmony-x64')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-openharmony-x64/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -539,8 +539,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('bun-rusty-opus-openharmony-arm')
-        const bindingPackageVersion = require('bun-rusty-opus-openharmony-arm/package.json').version
+        const binding = require('@ndqp/bun-rusty-opus-openharmony-arm')
+        const bindingPackageVersion = require('@ndqp/bun-rusty-opus-openharmony-arm/package.json').version
         if (bindingPackageVersion !== '0.2.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -678,16 +678,16 @@ if (!nativeBinding || forceWasi) {
     let candidateError = null
     let candidateFailed = false
     try {
-      candidateError = __napiWasiResolveCandidate('bun-rusty-opus-wasm32-wasi', true, undefined)
+      candidateError = __napiWasiResolveCandidate('@ndqp/bun-rusty-opus-wasm32-wasi', true, undefined)
       candidateFailed = candidateError !== null
       if (!candidateFailed) {
         if (process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          const bindingPackageVersion = require('bun-rusty-opus-wasm32-wasi/package.json').version
+          const bindingPackageVersion = require('@ndqp/bun-rusty-opus-wasm32-wasi/package.json').version
           if (bindingPackageVersion !== '0.2.0') {
             throw new Error(`WASI binding package version mismatch, expected 0.2.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
         }
-        wasiBinding = require('bun-rusty-opus-wasm32-wasi')
+        wasiBinding = require('@ndqp/bun-rusty-opus-wasm32-wasi')
         nativeBinding = wasiBinding
         __napiLoadedBindingTarget = 'wasm32-wasi'
         wasiBindingLoaded = true

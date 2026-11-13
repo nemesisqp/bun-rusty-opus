@@ -77,7 +77,7 @@ maybe('@discordjs/opus packets decode with us', () => {
 
 maybe('same input, both codecs produce valid packets of similar size', () => {
   // NOTE: the defaults differ — @discordjs/opus (libopus) defaults to
-  // 120000 bps, bun-rusty-opus defaults to 64000 bps — so the bitrate must
+  // 120000 bps, @ndqp/bun-rusty-opus defaults to 64000 bps — so the bitrate must
   // be matched explicitly before comparing sizes. With matched bitrate the
   // totals are within a few percent (measured 1.03-1.28x across 32-96 kbps).
   const ours = new RustyOpus(48000, 2, { bitrate: 64000 });

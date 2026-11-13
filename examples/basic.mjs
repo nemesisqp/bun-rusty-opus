@@ -1,6 +1,6 @@
 // Basic usage: encode a 1 s sine wave, decode it back.
 // Run: bun examples/basic.mjs  (after `npm run build`)
-import { OpusEncoder } from 'bun-rusty-opus';
+import { OpusEncoder } from '@ndqp/bun-rusty-opus';
 
 const encoder = new OpusEncoder(48000, 2);
 const samples = 48000;

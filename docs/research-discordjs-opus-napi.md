@@ -62,9 +62,10 @@ Source: research subagent, 2026-11-13. Verified against @discordjs/opus README /
   require()/import time, so the loader error message is the whole UX; (d) publish ALL platform
   packages on every release, names exactly matching what the loader requires.
 - Naming warning: napi-rs recommends a scoped main package, because unscoped platform packages
-  like `bun-rusty-opus-linux-x64-gnu` can trip npm spam detection. If public name must stay
-  unscoped `bun-rusty-opus`, publish platform packages under a scope via
-  `napi build --js-package-name @<scope>/bun-rusty-opus` (snappy precedent).
+  like `bun-rusty-opus-linux-x64-gnu` can trip npm spam detection. Resolved by scoping the
+  whole package: the public name is `@ndqp/bun-rusty-opus` and the platform packages are
+  `@ndqp/bun-rusty-opus-<triple>` (via the `napi.packageName` field, not
+  `--js-package-name`).
 - Bun compatibility: Bun loads napi-rs .node files natively via require() (N-API). Sync
   encode/decode is the safe surface; async/threadsafe-function N-API paths had Bun crashes
   fixed only in Bun 1.3.14, so test on recent Bun and Node 20/22/24.

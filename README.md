@@ -1,4 +1,4 @@
-# bun-rusty-opus
+# @ndqp/bun-rusty-opus
 
 > **Personal project — quick test, not production ready.** This is an
 > experiment for trying out rusty-opus under Bun/Node. It is not
@@ -20,9 +20,9 @@ work, credited below.
 ## Install
 
 ```sh
-npm install bun-rusty-opus
+npm install @ndqp/bun-rusty-opus
 # or
-bun install bun-rusty-opus
+bun install @ndqp/bun-rusty-opus
 ```
 
 **Prebuilt binaries only.** The package ships napi prebuilts for 8
@@ -45,7 +45,7 @@ Requires Node >= 18 or Bun >= 1.3.
 ## Usage
 
 ```js
-import { OpusEncoder, OpusDecoder } from 'bun-rusty-opus';
+import { OpusEncoder, OpusDecoder } from '@ndqp/bun-rusty-opus';
 
 const encoder = new OpusEncoder(48000, 2); // rate, channels; defaults 48000/2
 const packet = encoder.encode(pcmBuffer);   // 20 ms s16le frame (3840 bytes) -> Opus

@@ -1,4 +1,4 @@
-// bun-rusty-opus tests — run with `node --test test/*.test.mjs` or `bun test test/`.
+// @ndqp/bun-rusty-opus tests — run with `node --test test/*.test.mjs` or `bun test test/`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OpusEncoder, OpusDecoder, SUPPORTED_SAMPLE_RATES, packetFrameSize } from '../index.js';

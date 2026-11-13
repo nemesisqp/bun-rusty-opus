@@ -1,6 +1,6 @@
 # Design
 
-Decisions behind bun-rusty-opus, and the gotchas found while building it.
+Decisions behind @ndqp/bun-rusty-opus, and the gotchas found while building it.
 Read this before changing the binding layout, the loader, or the release
 flow.
 
@@ -136,7 +136,7 @@ Studio's `opus.ts`, which hardcodes 312 for libopus.
 each `.node` into `npm/<triple>/`, runs `napi prepublish`, publishes the
 main package and every platform package (`npm publish --access public`,
 `NPM_TOKEN` secret). Unscoped platform package names
-(`bun-rusty-opus-linux-x64-gnu`, …) are the napi default; they can trip
+(`@ndqp/bun-rusty-opus-linux-x64-gnu`, …) are the napi default; they can trip
 npm spam detection on first publish — if that happens, the fix is scoped
 platform packages, not a build fallback.
 

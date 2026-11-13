@@ -12,7 +12,7 @@ re-run the bench on your own hardware.
 
 | codec (bitrate matched at 64 kbps) | encode | decode | total |
 | --- | --- | --- | --- |
-| bun-rusty-opus (v0.2.0) | ~68 ms | ~28 ms | ~96 ms |
+| @ndqp/bun-rusty-opus (v0.2.0) | ~68 ms | ~28 ms | ~96 ms |
 | @discordjs/opus 0.11.0 (libopus) | ~89 ms | ~22 ms | ~111 ms |
 
 Across runs: **encode 1.28–1.31x faster, decode 0.80x (slower),
@@ -32,7 +32,7 @@ decode is slower than libopus, so the end-to-end win is smaller than
 mostly decodes. Do not quote "1.5x faster" as an overall figure.
 
 The bench matches bitrates explicitly (both at 64000 bps) because the
-defaults differ: bun-rusty-opus defaults to 64000 bps, @discordjs/opus
+defaults differ: @ndqp/bun-rusty-opus defaults to 64000 bps, @discordjs/opus
 (libopus `OPUS_AUTO`) defaults to 120000 bps. Comparing defaults would
 measure bitrate, not codec speed. Packet totals at matched bitrate are
 within a few percent (1.03–1.28x across 32–96 kbps on the same sine).

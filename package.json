@@ -43,10 +43,10 @@
   ],
   "license": "MIT",
   "main": "index.js",
-  "name": "bun-rusty-opus",
+  "name": "@ndqp/bun-rusty-opus",
   "napi": {
     "binaryName": "bun-rusty-opus",
-    "packageName": "bun-rusty-opus",
+    "packageName": "@ndqp/bun-rusty-opus",
     "targets": [
       "x86_64-apple-darwin",
       "aarch64-apple-darwin",

@@ -1,4 +1,4 @@
-// Benchmark: bun-rusty-opus vs @discordjs/opus (if installed).
+// Benchmark: @ndqp/bun-rusty-opus vs @discordjs/opus (if installed).
 // Usage: bun bench/bench.mjs  (or: node bench/bench.mjs)
 // Encodes + decodes 10 s of 48 kHz stereo audio in 20 ms frames.
 import { performance } from 'node:perf_hooks';
@@ -13,7 +13,7 @@ try {
   // that is a @discordjs/opus limitation, not a bench bug.
   ({ OpusEncoder: DiscordOpus } = createRequire(import.meta.url)('@discordjs/opus'));
 } catch {
-  console.log('@discordjs/opus not loadable here — benchmarking bun-rusty-opus only.\n');
+  console.log('@discordjs/opus not loadable here — benchmarking @ndqp/bun-rusty-opus only.\n');
 }
 
 function sinePcm(seconds = 10, rate = 48000, channels = 2) {
@@ -58,7 +58,7 @@ console.log('10 s of 48 kHz stereo, 20 ms frames (500 frames), best of 3 rounds'
 console.log('Bitrate matched at 64000 bps for both codecs (defaults differ: ours 64k, @discordjs/opus 120k).\n');
 // @discordjs/opus defaults to 120000 bps, ours to 64000 — match them, or the
 // comparison measures bitrate, not codec speed.
-const rusty = benchCodec('bun-rusty-opus', () => new OpusEncoder(48000, 2, { bitrate: 64000 }), pcm, frameBytes, 960);
+const rusty = benchCodec('@ndqp/bun-rusty-opus', () => new OpusEncoder(48000, 2, { bitrate: 64000 }), pcm, frameBytes, 960);
 if (DiscordOpus) {
   const discord = benchCodec('@discordjs/opus', () => {
     const enc = new DiscordOpus(48000, 2);
@@ -66,10 +66,10 @@ if (DiscordOpus) {
     return enc;
   }, pcm, frameBytes, 960);
   console.log(
-    `\nbun-rusty-opus vs @discordjs/opus: encode ${(discord.encodeMs / rusty.encodeMs).toFixed(2)}x, ` +
+    `\n@ndqp/bun-rusty-opus vs @discordjs/opus: encode ${(discord.encodeMs / rusty.encodeMs).toFixed(2)}x, ` +
       `decode ${(discord.decodeMs / rusty.decodeMs).toFixed(2)}x, ` +
       `overall ${((discord.encodeMs + discord.decodeMs) / (rusty.encodeMs + rusty.decodeMs)).toFixed(2)}x ` +
-      `(higher = bun-rusty-opus faster)`,
+      `(higher = @ndqp/bun-rusty-opus faster)`,
   );
 }
 
@@ -87,7 +87,7 @@ if (DiscordOpus) {
   for (const p of packets) enc.decodeInto(p, outPcm, 960);
   const t2 = performance.now();
   console.log(
-    `\nbun-rusty-opus (reuse) encodeInto ${(t1 - t0).toFixed(1)} ms, decodeInto ${(t2 - t1).toFixed(1)} ms ` +
+    `\n@ndqp/bun-rusty-opus (reuse) encodeInto ${(t1 - t0).toFixed(1)} ms, decodeInto ${(t2 - t1).toFixed(1)} ms ` +
       `(no Buffer allocated per frame; packet sizes ${sizes[0]}..${Math.max(...sizes)} bytes)`,
   );
 }

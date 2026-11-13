@@ -1,5 +1,5 @@
 /**
- * bun-rusty-opus — Bun/Node bindings to rusty-opus (pure-Rust Opus codec).
+ * @ndqp/bun-rusty-opus — Bun/Node bindings to rusty-opus (pure-Rust Opus codec).
  *
  * `OpusEncoder` mirrors @discordjs/opus: one class that encodes AND decodes,
  * s16le PCM Buffers in and out. See README.md for the full API.
@@ -49,7 +49,7 @@ export interface OpusEncoderOptions {
  * @discordjs/opus-compatible encoder/decoder.
  *
  * ```ts
- * import { OpusEncoder } from 'bun-rusty-opus';
+ * import { OpusEncoder } from '@ndqp/bun-rusty-opus';
  * const encoder = new OpusEncoder(48000, 2);
  * const packet = encoder.encode(pcmBuffer); // 20 ms s16le frame -> Opus
  * const pcm = encoder.decode(packet);
