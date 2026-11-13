@@ -12,7 +12,7 @@ re-run the bench on your own hardware.
 
 | codec (bitrate matched at 64 kbps) | encode | decode | total |
 | --- | --- | --- | --- |
-| @ndqp/bun-rusty-opus (v0.2.2) | ~60 ms | ~25 ms | ~84 ms |
+| @ndqp/bun-rusty-opus (v0.2.3) | ~60 ms | ~25 ms | ~84 ms |
 | @discordjs/opus 0.11.0 (libopus) | ~89 ms | ~22 ms | ~111 ms |
 
 Across runs: **encode 1.35–1.49x faster, decode 0.88–0.90x (slower),

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3 — 2026-11-13
+
+- Doc-only sync release: no code changes since 0.2.2. README and
+  `docs/PERFORMANCE.md` now carry the v0.2.2 measured numbers (encode
+  ~1.47x, decode ~0.89x, overall ~1.30x) — they were updated on main
+  after the 0.2.2 tag, so the published 0.2.2 package still showed the
+  old v0.2.0 figures. The Rust crate version in `Cargo.toml` is also
+  synced to 0.2.3 (it had lagged at 0.2.0 since the rename).
+
 ## 0.2.2 — 2026-11-13
 
 - Rebased the vendored rusty-opus fork from 1.0.2 to upstream **1.1.0**
