@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4 — 2026-11-17
+
+Release to validate npm trusted publishing (OIDC). The release
+workflow was migrated to OIDC in 87c57f6; no code changes.
+
 ## 0.2.3 — 2026-11-13
 
 - Doc-only sync release: no code changes since 0.2.2. README and
