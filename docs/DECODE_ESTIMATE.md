@@ -169,6 +169,32 @@ index-coding and zero-fill removals land squarely on the scaffolding
 identified as the bottleneck. The remaining ~11% is still the serial
 PVQ/postfilter work; no further clean SIMD wins are known.
 
+## Actual outcome, continued — upstream rusty-opus 1.2.1 (2026-11-24)
+
+Upstream released 1.1.1 (LICENSE file only), 1.2.0 (multistream:
+explicit layouts, family 255, self-delimited stream decode fix) and
+1.2.1 (dev-dependency bump only) between 2026-11-14 and 2026-11-23.
+The fork was rebased from 1.1.0 to 1.2.1 the same day Phuong asked.
+None of the patched files changed upstream between 1.1.0 and 1.2.1,
+so all four patches re-applied with byte-identical hunks. One
+upstream packaging gap surfaced: the new `tests/multistream_oracle.rs`
+reads `fixtures/multistream/` files that upstream's `Cargo.toml`
+explicitly excludes from the crates.io tarball, so the upstream suite
+fails from the published crate — the 10 fixture files (88 KB) were
+fetched from upstream's v1.2.1 tag and committed in the vendor.
+
+**Do the patches still earn their keep?** Phuong's question on the
+rebase. Measured A/B on this VM (node bench, 3 runs each): patched
+fork — encode 1.49–1.52x, decode 0.89–0.93x, overall 1.31–1.35x
+(decode 23.1–24.0 ms, encode 57.5–57.9 ms); pristine upstream 1.2.1
+(no patch) — encode 1.36–1.38x, decode 0.79–0.82x, overall
+1.19–1.21x (decode 25.7–26.1 ms, encode 62.5–66.6 ms). The patches
+are still worth ~10% on both encode and decode, in every run, so
+the fork stays. Upstream's 1.2.0/1.2.1 work is multistream-only and
+subsumed nothing. Result (best of 3): decode **~0.89x** (unchanged
+from 1.1.0), encode **~1.47x → ~1.51x**, overall **~1.30x →
+~1.33x**. Absolute decode ~23.1–24.9 ms (was ~24.6–25.3 ms).
+
 ## Caveats
 
 - The realistic case assumes the three stages respond as estimated;

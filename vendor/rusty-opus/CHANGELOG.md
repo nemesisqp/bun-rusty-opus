@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.1](https://github.com/Remade-With-Rust/rusty-opus/compare/v1.2.0...v1.2.1) - 2026-11-23
+
+### Other
+
+- bump rusty_alloc-api to 2.6.0 ([#37](https://github.com/Remade-With-Rust/rusty-opus/pull/37))
+- 123,126 active installs
+
+## [1.2.0](https://github.com/Remade-With-Rust/rusty-opus/compare/v1.1.1...v1.2.0) - 2026-11-19
+
+### Added
+
+- *(multistream)* explicit layouts, family 255; fix self-delimited stream decode
+
+## [1.1.1](https://github.com/Remade-With-Rust/rusty-opus/compare/v1.1.0...v1.1.1) - 2026-11-14
+
+### Other
+
+- add a standard BSD-3-Clause LICENSE file
+
 ## [1.1.0](https://github.com/Remade-With-Rust/rusty-opus/compare/v1.0.2...v1.1.0) - 2026-11-12
 
 A performance release. No API change and **no change in output**: on every benchmarked

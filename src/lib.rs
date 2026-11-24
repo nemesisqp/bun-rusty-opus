@@ -9,7 +9,7 @@
 //! * **Reuse output buffers.** The `f32` scratch buffers live on the struct
 //!   and only grow (never shrink, never re-allocate per frame). The codec
 //!   itself also stops allocating after warm-up (see rusty-opus docs).
-//! * **i16 <-> f32 conversion is done here, in Rust.** `rusty-opus` 1.1.0 is
+//! * **i16 <-> f32 conversion is done here, in Rust.** `rusty-opus` 1.2.1 is
 //!   f32-only (no `encode_i16`/`decode_i16`); a JS conversion loop would
 //!   cost more than the codec itself on small frames. The i16 -> f32 loop
 //!   auto-vectorises; the f32 -> i16 loop does not (the `.round()` +

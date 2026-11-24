@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Rebased the vendored rusty-opus fork from upstream **1.1.0** to
+  **1.2.1** (1.2.0 adds multistream explicit layouts / family 255 /
+  self-delimited stream decode fix; 1.1.1 and 1.2.1 are metadata-only).
+  All four patches re-applied cleanly (upstream touched none of the
+  patched files); parity harness still 44/44 vs pristine 1.2.1, lib
+  tests 76 + integration tests pass, JS tests 40/40, clippy clean.
+  Upstream's new `multistream_oracle` test needs
+  `fixtures/multistream/` files that the crates.io tarball excludes —
+  the 10 files (88 KB) were fetched from upstream's v1.2.1 tag and
+  committed in the vendor so the full suite runs.
+- Patch-still-wins check (Phuong's question): the fork is still ~10%
+  faster than pristine upstream 1.2.1 on both encode and decode
+  (decode ~23–24 ms vs ~26 ms, encode ~58 ms vs ~63–67 ms, 3 runs
+  each), so the fork stays. Measured numbers now encode ~1.51x,
+  decode ~0.89x, overall ~1.33x vs libopus.
+
 ## 0.2.4 — 2026-11-17
 
 Release to validate npm trusted publishing (OIDC). The release

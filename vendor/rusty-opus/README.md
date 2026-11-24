@@ -1,4 +1,4 @@
-### In The Wild with 91,118 Active Installs (6 hour Issue response, 72 hour Issue closure)
+### In The Wild with 123,126 Active Installs (6 hour Issue response, 72 hour Issue closure)
 
 FREE RAG Converter Online -- <a href="https://RAGconverter.com">RAGconverter.com</a>
 
@@ -8,7 +8,7 @@ FREE RAG Converter Online -- <a href="https://RAGconverter.com">RAGconverter.com
 [![crates.io](https://img.shields.io/crates/v/rusty-opus.svg)](https://crates.io/crates/rusty-opus)
 [![docs.rs](https://img.shields.io/docsrs/rusty-opus)](https://docs.rs/rusty-opus)
 [![CI](https://github.com/Remade-With-Rust/rusty-opus/actions/workflows/ci.yml/badge.svg)](https://github.com/Remade-With-Rust/rusty-opus/actions/workflows/ci.yml)
-[![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue)](COPYING)
+[![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 [![MSRV 1.85](https://img.shields.io/badge/MSRV-1.85-informational)](#platform-support)
 
 **A complete, pure-Rust implementation of the [Opus audio codec](https://opus-codec.org/)
@@ -73,7 +73,7 @@ whose variants mirror the `libopus` error codes (`BadArg`, `BufferTooSmall`,
 | API | Purpose |
 |---|---|
 | `OpusEncoder` / `OpusDecoder` | Mono and stereo encode / decode, PLC, FEC |
-| `multistream::{OpusMSEncoder, OpusMSDecoder}` | Surround (mapping families 0 and 1) |
+| `multistream::{OpusMSEncoder, OpusMSDecoder}` | Surround: encode families 0 and 1; decode families 0, 1 and 255 (`ChannelLayout::from_opus_head`) |
 | `repacketizer` | Merge, split, pad and unpad packets without re-encoding |
 | `parallel` | Frame-parallel and batch encoding across threads |
 
@@ -169,9 +169,9 @@ Part of [Remade With Rust](https://github.com/remade-with-rust), an initiative b
 
 ## License
 
-BSD-3-Clause — see [COPYING](COPYING). Derived from
+BSD-3-Clause — see [LICENSE](LICENSE). Derived from
 [`opus-rs`](https://github.com/restsend/opus-rs) and, ultimately, the reference Opus
-implementation, both BSD-3-Clause.
+implementation, both BSD-3-Clause; their notices are retained in [NOTICE](NOTICE).
 
 ---
 

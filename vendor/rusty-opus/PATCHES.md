@@ -1,26 +1,35 @@
 # rusty-opus fork (vendored)
 
-This is a vendored copy of **rusty-opus 1.1.0** (pure-Rust Opus codec,
+This is a vendored copy of **rusty-opus 1.2.1** (pure-Rust Opus codec,
 BSD-3-Clause, upstream: https://github.com/Remade-With-Rust/rusty-opus),
 patched by the bun-rusty-opus project for decode performance. The
-original `COPYING` (BSD-3-Clause) is retained unchanged.
+original `LICENSE` and `NOTICE` (BSD-3-Clause) are retained unchanged
+(upstream renamed `COPYING` to `LICENSE` and added `NOTICE` in 1.1.1).
 
-Rebased from 1.0.2 to 1.1.0 on 2026-11-13 (upstream's performance
-release, v1.1.0, 2026-11-13T07:18:55Z). All four patches below were
-re-applied: the FFT kernels (kiss_fft.rs) and the range-coder inlining
-(range_coder.rs) apply cleanly — upstream did not touch those files;
-the SIG_SAT slice (celt.rs) re-applies at shifted line numbers
-(upstream only removed the `w_pcm_frame` zero-fill next to it); the
-`exp_rotation1` AVX2/SSE2 kernels (pvq.rs) needed a manual merge
-because upstream rewrote the scalar to be bounds-check-free (with a
-`#[cold]` checked fallback) — our kernels and dispatcher are kept
-unchanged and the new upstream scalar is the fallback. Upstream's
-1.1.0 work (PVQ index-coding table-lookup skips, MDCT/high-pass
-zero-fill removal, inline `floor`/`round_ties_even`, SILK NSQ/decoder
-AVX2, slice-walking sample plumbing) is taken as-is. One extra
-one-line lint fix was needed (patch 5): upstream 1.1.0's
-`src/silk/resampler.rs` trips Rust 1.100's `tuple_array_conversions`
-lint under `-D warnings`.
+Rebased from 1.1.0 to 1.2.1 on 2026-11-24 (upstream v1.2.1,
+2026-11-23T02:31:36Z). All four patches below re-applied cleanly —
+upstream did not touch any of the patched files between 1.1.0 and
+1.2.1 (the 1.2.0 work is multistream only: explicit layouts, family
+255, self-delimited stream decode fix; 1.1.1 only added the LICENSE
+file and 1.2.1 only bumped a dev-dependency). The patch hunks are
+byte-identical to the 1.1.0 rebase (pvq.rs 148 lines, range_coder.rs 6,
+kiss_fft.rs 544, celt.rs 10, resampler.rs 5). Upstream's 1.1.0 work
+(PVQ index-coding table-lookup skips, MDCT/high-pass zero-fill
+removal, inline `floor`/`round_ties_even`, SILK NSQ/decoder AVX2,
+slice-walking sample plumbing) is taken as-is. The one-line lint fix
+(patch 5) is still needed: upstream's `src/silk/resampler.rs` line is
+unchanged since 1.1.0 and still trips Rust 1.100's
+`tuple_array_conversions` lint under `-D warnings`.
+
+Earlier rebase (1.0.2 → 1.1.0, 2026-11-13): the FFT kernels
+(kiss_fft.rs) and the range-coder inlining (range_coder.rs) applied
+cleanly — upstream did not touch those files; the SIG_SAT slice
+(celt.rs) re-applied at shifted line numbers (upstream only removed
+the `w_pcm_frame` zero-fill next to it); the `exp_rotation1`
+AVX2/SSE2 kernels (pvq.rs) needed a manual merge because upstream
+rewrote the scalar to be bounds-check-free (with a `#[cold]` checked
+fallback) — our kernels and dispatcher are kept unchanged and the new
+upstream scalar is the fallback.
 
 ## Why a vendored fork
 
@@ -44,10 +53,22 @@ Root `Cargo.toml` has:
 rusty-opus = { path = "vendor/rusty-opus" }
 ```
 
-The vendored crate keeps version `1.1.0` so the patch applies cleanly
-to the `=1.1.0` pin. Its own `Cargo.lock` is kept for standalone
+The vendored crate keeps version `1.2.1` so the patch applies cleanly
+to the `=1.2.1` pin. Its own `Cargo.lock` is kept for standalone
 `cargo test` runs inside this directory; the workspace lock is the
 authoritative one.
+
+## Test fixtures (not in the crates.io tarball)
+
+`fixtures/multistream/` (10 files, 88 KB: five `.msp` packet files +
+five `.r16` reference PCM files) is **not** in the 1.2.1 tarball —
+upstream's `Cargo.toml` explicitly excludes it (`exclude =
+["fixtures/multistream/"]`), yet the new `tests/multistream_oracle.rs`
+reads those files, so the upstream test suite fails out of the box
+from the published crate. The files were fetched from upstream's
+`v1.2.1` tag on GitHub (raw.githubusercontent.com) and committed
+here so `cargo test` runs the full suite, including the multistream
+oracle. They are upstream test data (BSD-3-Clause), not a patch.
 
 ## Rules for patches (all of them are enforced by the checks below)
 
@@ -213,7 +234,7 @@ authoritative one.
 
 - `cargo test -p rusty-opus` (vendored crate's own suite, incl.
   `oracle_bitexact`, RFC vectors, round-trips, property tests).
-- `scripts/check-decode-parity.sh` — pristine 1.0.2 (from the registry)
+- `scripts/check-decode-parity.sh` — pristine 1.2.1 (from the registry)
   vs this patched copy, bit-for-bit PCM on a fixed corpus, plus
   encode bit-identity.
 - `npm test` + `test/decode-parity.test.mjs` — JS-level interop vs

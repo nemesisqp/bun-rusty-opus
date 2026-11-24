@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.85"
 name = "rusty-opus"
-version = "1.1.0"
+version = "1.2.1"
 authors = [
     "jinti<shenjindi@fourz.cn>",
     "Remade-With-Rust",
@@ -26,6 +26,7 @@ exclude = [
     "tests/analyze_encode.rs",
     "tools/",
     "fixtures/gate_corpus/",
+    "fixtures/multistream/",
     "docs/census-2026-08-07/",
     ".github/",
     ".semgrep/",
@@ -247,6 +248,10 @@ name = "multi_frame_interop_test"
 path = "tests/multi_frame_interop_test.rs"
 
 [[test]]
+name = "multistream_oracle"
+path = "tests/multistream_oracle.rs"
+
+[[test]]
 name = "nsq_rd_microbench"
 path = "tests/nsq_rd_microbench.rs"
 
@@ -398,7 +403,7 @@ features = ["std"]
 default-features = false
 
 [dev-dependencies.rusty_alloc-api]
-version = "=2.5.0"
+version = "2.6.0"
 
 [lints.clippy]
 approx_constant = "allow"

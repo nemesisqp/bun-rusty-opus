@@ -12,15 +12,15 @@ re-run the bench on your own hardware.
 
 | codec (bitrate matched at 64 kbps) | encode | decode | total |
 | --- | --- | --- | --- |
-| @ndqp/bun-rusty-opus (v0.2.3) | ~60 ms | ~25 ms | ~84 ms |
+| @ndqp/bun-rusty-opus (main, rusty-opus 1.2.1) | ~60 ms | ~25 ms | ~84 ms |
 | @discordjs/opus 0.11.0 (libopus) | ~89 ms | ~22 ms | ~111 ms |
 
-Across runs: **encode 1.35–1.49x faster, decode 0.88–0.90x (slower),
-overall 1.22–1.32x**. Both codecs run ~90–120x realtime on this VM
+Across runs: **encode 1.49–1.52x faster, decode 0.89–0.93x (slower),
+overall 1.31–1.35x**. Both codecs run ~90–120x realtime on this VM
 (~5900 frames/s for ours). v0.1.0 decoded at ~33 ms; v0.1.1's SIMD
 f32→i16 conversion brought it to ~29 ms; v0.2.0's vendored-fork
 patches (below) to ~28 ms; the FFT AVX kernels + the rusty-opus 1.1.0
-rebase (v0.2.2) to ~25 ms.
+rebase (v0.2.2) to ~25 ms; the rusty-opus 1.2.1 rebase to ~23 ms.
 
 ### What the "1.5x faster" claim really means
 
@@ -103,10 +103,10 @@ crate's "SILK within 4%" claim does not hold there on this VM. The
 
 ## Vendored rusty-opus fork (v0.2.0)
 
-The remaining decode gap was inside the crate, so rusty-opus 1.1.0 is
+The remaining decode gap was inside the crate, so rusty-opus 1.2.1 is
 vendored into `vendor/rusty-opus/` (`[patch.crates-io]`, see
 `vendor/rusty-opus/PATCHES.md`) with bit-preserving patches only —
-every patch must produce bit-identical PCM to pristine 1.1.0, checked
+every patch must produce bit-identical PCM to pristine 1.2.1, checked
 by `scripts/check-decode-parity.sh` (44/44: 11 configs × normal/PLC/
 FEC decode + encode bit-identity). Applied patches:
 
@@ -116,21 +116,39 @@ FEC decode + encode bit-identity). Applied patches:
 - `dec_bits` / `read_byte` / `unext` `#[inline(always)]`.
 - SIG_SAT clamp loop slices first (removes a per-sample bounds check,
   lets LLVM vectorise the clamp).
+- FFT `m > 1` butterfly AVX kernels for all four radices (the `m > 1`
+  stages had scalar bodies under `#[target_feature(enable = "avx")]`
+  that LLVM never auto-vectorised; explicit intrinsics, bit-exact,
+  unit-tested).
 
-Together: decode 28.6 → 27.8 ms (0.78x → 0.80x vs libopus). Two leads
-were measured and dropped: the `cwrsi`/`compute_u` fallback never
-fires on real content (0 calls on the whole corpus), and an AVX
-`kf_bfly2` extraction did not vectorise (LLVM won't auto-vectorise
-its strided groups) and was reverted. The earlier estimate of 22–24 ms
-for a fork was too optimistic — see `docs/DECODE_ESTIMATE.md` for the
+Together: decode 28.6 → 27.8 ms (0.78x → 0.80x vs libopus) for
+patches 1–3, then the FFT kernels took it to ~30.1 ms from 32.5 ms
+on the 1.0.2 base (0.77x → 0.82x). Two leads were measured and
+dropped: the `cwrsi`/`compute_u` fallback never fires on real
+content (0 calls on the whole corpus), and an AVX `kf_bfly2`
+extraction did not vectorise (LLVM won't auto-vectorise its strided
+groups) and was reverted. The earlier estimate of 22–24 ms for a
+fork was too optimistic — see `docs/DECODE_ESTIMATE.md` for the
 honest post-mortem (PVQ scaffolding and the already-optimised
 IMDCT/postfilter don't have that headroom).
+
+**Do the patches still earn their keep?** Checked on the 1.2.1
+rebase (2026-11-24): the same bench run against pristine upstream
+1.2.1 (no `[patch.crates-io]`, crates.io crate) gives encode
+1.36–1.38x, decode 0.79–0.82x, overall 1.19–1.21x — decode
+25.7–26.1 ms, encode 62.5–66.6 ms. The patched fork is ~10% faster
+on both encode and decode (decode ~23–24 ms vs ~26 ms, encode
+~58 ms vs ~63–67 ms), in every one of 3 runs. Upstream's 1.2.0/1.2.1
+work is multistream-only and did not subsume any patch, so the
+fork stays. If a future upstream release closes the gap, the check
+is cheap to repeat: build once with and once without the patch and
+compare `node bench/bench.mjs`.
 
 A pre-existing upstream difference worth knowing: packet-loss
 concealment diverges from libopus (different fade — measured PLC RMS
 0.35 vs libopus 0.23 on the sine corpus). That is upstream behaviour,
 not a fork regression (the fork's PLC is bit-identical to pristine
-1.1.0); the JS test asserts PLC sanity (non-silent, bounded, decoding
+1.2.1); the JS test asserts PLC sanity (non-silent, bounded, decoding
 continues) rather than libopus parity.
 
 ## Pre-skip (end-to-end delay)
