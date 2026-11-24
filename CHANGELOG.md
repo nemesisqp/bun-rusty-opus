@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.5 — 2026-11-24
 
 - Rebased the vendored rusty-opus fork from upstream **1.1.0** to
   **1.2.1** (1.2.0 adds multistream explicit layouts / family 255 /
